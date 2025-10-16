@@ -5,10 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "start:clean": "start-server.bat",
-    "stop": "stop-server.bat",
-    "dev": "nodemon server.js",
-    "restart": "npm run stop && timeout /t 2 /nobreak >nul && npm start"
+    "dev": "nodemon server.js"
   },
   "keywords": [
     "employee",
@@ -21,7 +18,7 @@
   "license": "MIT",
   "dependencies": {
     "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
+    "dotenv": "^16.4.5",
     "express": "^4.18.2",
     "express-session": "^1.18.2",
     "mongoose": "^8.0.3",
@@ -30,5 +27,9 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
   }
 }
