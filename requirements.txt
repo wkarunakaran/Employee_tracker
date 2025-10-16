@@ -1,38 +1,14 @@
-# Proeduvate Employee Progress Portal - Requirements
-# Node.js Project Dependencies
-
-# Core Dependencies
-cors@2.8.5
-dotenv@17.2.3
-express@4.18.2
-express-session@1.18.2
-mongoose@8.0.3
-multer@1.4.5
-path@0.12.7
-nodemon@3.0.2
-
-
-# Development Dependencies
-nodemon@3.0.2
-
-# System Requirements
-# Node.js >= 14.0.0
-# MongoDB >= 4.0.0 (local or cloud)
-# npm >= 6.0.0
-
-# Environment Variables Required:
-# PORT=3001
-# BASE_URL=http://localhost:3001/
-# LOGIN_USERNAME=Login@proEduvate
-# LOGIN_PASSWORD=Pass@proEduvate
-# SESSION_SECRET=proeduvate-secret-key-2024
-# MONGODB_URI=mongodb://localhost:27017/Proeduvate
-# (or use CLUSTERNAME, USERNAME, PASSWORD for cloud MongoDB)
-
-# Installation Commands:
-# npm install
-# npm install -g nodemon (for development)
-
-# Start Commands:
-# npm start (production)
-# npm run dev (development with auto-restart)
+{
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.18.2",
+    "express-session": "^1.18.2",
+    "mongoose": "^8.0.3",
+    "multer": "^1.4.5",
+    "path": "^0.12.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
