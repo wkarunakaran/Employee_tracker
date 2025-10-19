@@ -55,11 +55,9 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  // Allow specific file types
   const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|zip|rar|txt/;
   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
   const mimetype = allowedTypes.test(file.mimetype);
-
   if (mimetype && extname) {
     return cb(null, true);
   } else {
@@ -70,8 +68,8 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: parseInt(process.env.MAX_FILE_SIZE) || 5 * 1024 * 1024, // 5MB limit per file
-    files: parseInt(process.env.MAX_FILES) || 10 // Maximum 10 files
+    fileSize: parseInt(process.env.MAX_FILE_SIZE) || 5 * 1024 * 1024,
+    files: parseInt(process.env.MAX_FILES) || 10
   },
   fileFilter: fileFilter
 });
@@ -79,125 +77,69 @@ const upload = multer({
 // MongoDB connection
 let mongoUri;
 if (process.env.MONGODB_URI) {
-  // Use direct MONGODB_URI if provided
   mongoUri = process.env.MONGODB_URI;
 } else if (process.env.CLUSTERNAME && process.env.USERNAME && process.env.PASSWORD) {
-  // Construct MongoDB URI from individual components
   const clusterName = process.env.CLUSTERNAME;
   const username = process.env.USERNAME;
   const password = process.env.PASSWORD;
-  const provider = process.env.PROVIDER || 'mongodb.net'; // Default to MongoDB Atlas
-  
+  const provider = process.env.PROVIDER || 'mongodb.net';
   mongoUri = `mongodb+srv://${username}:${password}@${clusterName}.${provider}/Proeduvate?retryWrites=true&w=majority`;
 } else {
-  // Fallback to local MongoDB
   mongoUri = 'mongodb://localhost:27017/Proeduvate';
 }
 
-// MongoDB connection with minimal options to avoid compatibility issues
 mongoose.connect(mongoUri)
-.then(() => {
-  console.log('Connected to MongoDB successfully');
-  console.log(`Database: ${mongoUri.includes('localhost') ? 'Local MongoDB' : 'Cloud MongoDB'}`);
-})
-.catch((error) => {
-  console.error('MongoDB connection error:', error);
-  
-  if (error.name === 'MongooseServerSelectionError') {
-    console.error('\n🔧 Troubleshooting MongoDB Atlas Connection:');
-    console.error('1. Check if your IP address is whitelisted in MongoDB Atlas');
-    console.error('2. Go to: https://cloud.mongodb.com → Network Access → Add IP Address');
-    console.error('3. Add your current IP or use 0.0.0.0/0 for all IPs (development only)');
-    console.error('4. Verify your cluster is running and accessible');
-    console.error('5. Check your username and password are correct');
-  }
-  
-  if (error.message && (error.message.includes('SSL') || error.message.includes('TLS'))) {
-    console.error('\n🔧 SSL/TLS Connection Issues:');
-    console.error('1. Try adding these parameters to your MongoDB URI:');
-    console.error('   ?ssl=true&tlsAllowInvalidCertificates=true&tlsAllowInvalidHostnames=true');
-    console.error('2. Example: mongodb+srv://user:pass@cluster.mongodb.net/db?ssl=true&tlsAllowInvalidCertificates=true');
-    console.error('3. Verify your MongoDB Atlas cluster allows connections from your IP');
-    console.error('4. Ensure your MongoDB user has proper permissions');
-  }
-  
-  if (error.name === 'MongoParseError') {
-    console.error('\n🔧 MongoDB URI Parse Error:');
-    console.error('1. Check your MongoDB connection string format');
-    console.error('2. Ensure all special characters in password are URL encoded');
-    console.error('3. Verify the connection string is properly formatted');
-  }
-  
-  console.error('\n💡 For local development, you can also use local MongoDB:');
-  console.error('   Set MONGODB_URI=mongodb://localhost:27017/Proeduvate in your .env file');
-  
-  // Don't exit immediately, allow server to start and retry connection
-  console.error('\n⚠️  Server will continue running but database operations will fail until connection is established.');
-  console.error('   The server will attempt to reconnect automatically.');
-});
+  .then(() => {
+    console.log('✅ Connected to MongoDB successfully');
+  })
+  .catch((error) => {
+    console.error('❌ MongoDB connection error:', error);
+  });
 
 // Routes
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Admin login route
 app.get('/admin-login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin-login.html'));
 });
 
-// Admin login API
+const ADMIN_USERNAME = process.env.LOGIN_USERNAME || 'Login@proEduvate';
+const ADMIN_PASSWORD = process.env.LOGIN_PASSWORD || 'Pass@proEduvate';
+
+// Admin login
 app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body;
-  
   if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
     req.session.isAuthenticated = true;
     req.session.adminUser = username;
-    res.json({
-      success: true,
-      message: 'Login successful'
-    });
+    res.json({ success: true, message: 'Login successful' });
   } else {
-    res.status(401).json({
-      success: false,
-      message: 'Invalid credentials'
-    });
+    res.status(401).json({ success: false, message: 'Invalid credentials' });
   }
 });
 
-// Admin logout API
+// Admin logout
 app.post('/api/admin/logout', (req, res) => {
   req.session.destroy((err) => {
     if (err) {
-      return res.status(500).json({
-        success: false,
-        message: 'Logout failed'
-      });
+      return res.status(500).json({ success: false, message: 'Logout failed' });
     }
-    res.json({
-      success: true,
-      message: 'Logged out successfully'
-    });
+    res.json({ success: true, message: 'Logged out successfully' });
   });
 });
 
-// Check authentication status
+// Auth check
 app.get('/api/admin/auth-status', (req, res) => {
   if (req.session && req.session.isAuthenticated) {
-    res.json({
-      success: true,
-      authenticated: true,
-      user: req.session.adminUser
-    });
+    res.json({ success: true, authenticated: true, user: req.session.adminUser });
   } else {
-    res.json({
-      success: true,
-      authenticated: false
-    });
+    res.json({ success: true, authenticated: false });
   }
 });
 
-// Protected admin route
+// Protected admin
 app.get('/admin', (req, res) => {
   if (req.session && req.session.isAuthenticated) {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
@@ -206,79 +148,39 @@ app.get('/admin', (req, res) => {
   }
 });
 
-// API endpoint to get BASE_URL for client-side
 app.get('/api/config', (req, res) => {
-  res.json({
-    BASE_URL: BASE_URL
-  });
+  res.json({ BASE_URL: BASE_URL });
 });
 
-// Connection status check
-const checkConnection = () => {
-  return mongoose.connection.readyState === 1;
-};
+const checkConnection = () => mongoose.connection.readyState === 1;
 
-// Authentication middleware
 const requireAuth = (req, res, next) => {
-  if (req.session && req.session.isAuthenticated) {
-    return next();
-  } else {
-    return res.status(401).json({
-      success: false,
-      message: 'Authentication required'
-    });
-  }
+  if (req.session && req.session.isAuthenticated) return next();
+  return res.status(401).json({ success: false, message: 'Authentication required' });
 };
 
-// Admin credentials from environment variables
-const ADMIN_USERNAME = process.env.LOGIN_USERNAME || 'Login@proEduvate';
-const ADMIN_PASSWORD = process.env.LOGIN_PASSWORD || 'Pass@proEduvate';
-
-// API Routes
 // Submit employee progress
 app.post('/api/employee-progress', upload.array('fileAttachment', 10), async (req, res) => {
   try {
-    // Check if MongoDB is connected
     if (!checkConnection()) {
-      return res.status(503).json({
-        success: false,
-        message: 'Database connection is not available. Please try again later.'
-      });
+      return res.status(503).json({ success: false, message: 'Database not connected.' });
     }
+
     const {
-      internName,
-      internEmail,
-      internId,
-      internDomain,
-      date,
-      techLeadName,
-      assignedTask,
-      workStatus,
-      learnedToday,
-      workDescription,
-      challengesFaced,
-      supportRequired,
-      formSubmissionTime
+      internName, internEmail, internId, internDomain, date,
+      techLeadName, assignedTask, workStatus, learnedToday,
+      workDescription, challengesFaced, supportRequired, formSubmissionTime
     } = req.body;
 
-    // Validation
     if (!internName || !internEmail || !internId || !internDomain || !date || !techLeadName || !assignedTask || !workStatus) {
-      return res.status(400).json({
-        success: false,
-        message: 'All required fields must be filled'
-      });
+      return res.status(400).json({ success: false, message: 'All required fields must be filled.' });
     }
 
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(internEmail)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide a valid email address'
-      });
+      return res.status(400).json({ success: false, message: 'Invalid email address.' });
     }
 
-    // Prepare file data if uploaded
     let fileAttachments = [];
     if (req.files && req.files.length > 0) {
       fileAttachments = req.files.map(file => ({
@@ -289,268 +191,40 @@ app.post('/api/employee-progress', upload.array('fileAttachment', 10), async (re
         mimeType: file.mimetype
       }));
     }
-    
 
-    // Create new progress entry
     const progressEntry = new EmployeeProgress({
-      internName,
-      internEmail,
-      internId,
-      internDomain,
-      date: new Date(date),
-      techLeadName,
-      assignedTask,
-      workStatus,
-      learnedToday,
-      workDescription,
-      challengesFaced,
-      supportRequired,
-      fileAttachments: fileAttachments,
-      formSubmissionTime: formSubmissionTime ? new Date(formSubmissionTime) : new Date() // Use client timestamp or current time
+      internName, internEmail, internId, internDomain,
+      date: new Date(date), techLeadName, assignedTask,
+      workStatus, learnedToday, workDescription, challengesFaced,
+      supportRequired, fileAttachments,
+      formSubmissionTime: formSubmissionTime ? new Date(formSubmissionTime) : new Date()
     });
 
     await progressEntry.save();
-
-    res.status(201).json({
-      success: true,
-      message: 'Progress submitted successfully',
-      data: {
-        id: progressEntry._id,
-        internName: progressEntry.internName,
-        submissionDate: progressEntry.submissionTimestamp
-      }
-    });
+    res.status(201).json({ success: true, message: 'Progress submitted successfully.' });
 
   } catch (error) {
     console.error('Error submitting progress:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error. Please try again later.'
-    });
+    res.status(500).json({ success: false, message: 'Internal server error.' });
   }
 });
 
-// Get all employee progress (for admin dashboard) - Protected route
-app.get('/api/employee-progress', requireAuth, async (req, res) => {
-  try {
-    // Check if MongoDB is connected
-    if (!checkConnection()) {
-      return res.status(503).json({
-        success: false,
-        message: 'Database connection is not available. Please try again later.'
-      });
-    }
-    const { search, domain, techLead, page = 1, limit = 10 } = req.query;
-    
-    // Build filter object
-    let filter = {};
-    
-    if (search) {
-      filter.$or = [
-        { internName: { $regex: search, $options: 'i' } },
-        { internEmail: { $regex: search, $options: 'i' } },
-        { internId: { $regex: search, $options: 'i' } }
-      ];
-    }
-    
-    if (domain && domain !== 'all') {
-      filter.internDomain = domain;
-    }
-    
-    if (techLead && techLead !== 'all') {
-      filter.techLeadName = techLead;
-    }
-
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    
-    const progressEntries = await EmployeeProgress.find(filter)
-      .sort({ submissionTimestamp: -1 })
-      .skip(skip)
-      .limit(parseInt(limit))
-      .select('-__v');
-
-    const totalCount = await EmployeeProgress.countDocuments(filter);
-
-    res.json({
-      success: true,
-      data: progressEntries,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(totalCount / parseInt(limit)),
-        totalCount,
-        hasNext: skip + progressEntries.length < totalCount,
-        hasPrev: parseInt(page) > 1
-      }
-    });
-
-  } catch (error) {
-    console.error('Error fetching progress entries:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error. Please try again later.'
-    });
-  }
-});
-
-// Get single progress entry by ID - Protected route
-app.get('/api/employee-progress/:id', requireAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid ID format'
-      });
-    }
-
-    const progressEntry = await EmployeeProgress.findById(id);
-    
-    if (!progressEntry) {
-      return res.status(404).json({
-        success: false,
-        message: 'Progress entry not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      data: progressEntry
-    });
-
-  } catch (error) {
-    console.error('Error fetching progress entry:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error. Please try again later.'
-    });
-  }
-});
-
-// Delete a specific file from a progress entry - Protected route
-app.delete('/api/employee-progress/:id/files/:fileName', requireAuth, async (req, res) => {
-  try {
-    const { id, fileName } = req.params;
-    
-    // Check if MongoDB is connected
-    if (!checkConnection()) {
-      return res.status(503).json({
-        success: false,
-        message: 'Database connection is not available. Please try again later.'
-      });
-    }
-    
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid ID format'
-      });
-    }
-
-    const progressEntry = await EmployeeProgress.findById(id);
-    
-    if (!progressEntry) {
-      return res.status(404).json({
-        success: false,
-        message: 'Progress entry not found'
-      });
-    }
-
-    // Find the file attachment to delete
-    const fileIndex = progressEntry.fileAttachments.findIndex(file => file.fileName === fileName);
-    
-    if (fileIndex === -1) {
-      return res.status(404).json({
-        success: false,
-        message: 'File not found'
-      });
-    }
-
-    const fileToDelete = progressEntry.fileAttachments[fileIndex];
-    const filePath = path.join(__dirname, 'uploads', fileToDelete.fileName);
-
-    // Remove file from filesystem
-    try {
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-        console.log(`File deleted from filesystem: ${filePath}`);
-      }
-    } catch (fileError) {
-      console.error('Error deleting file from filesystem:', fileError);
-      // Continue with database update even if file deletion fails
-    }
-
-    // Remove file from database
-    progressEntry.fileAttachments.splice(fileIndex, 1);
-    await progressEntry.save();
-
-    res.json({
-      success: true,
-      message: 'File deleted successfully',
-      data: {
-        deletedFile: fileToDelete.originalName,
-        remainingFiles: progressEntry.fileAttachments.length
-      }
-    });
-
-  } catch (error) {
-    console.error('Error deleting file:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error. Please try again later.'
-    });
-  }
-});
-
-// Error handling middleware
+// Error Handling
 app.use((error, req, res, next) => {
-  if (error instanceof multer.MulterError) {
-    if (error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({
-        success: false,
-        message: 'File too large. Maximum size is 5MB per file.'
-      });
-    }
-    
-    if (error.code === 'LIMIT_FILE_COUNT') {
-      return res.status(400).json({
-        success: false,
-        message: 'Too many files. Maximum 10 files allowed per submission.'
-      });
-    }
-  }
-  
-  if (error.message === 'Invalid file type. Only images, PDFs, documents, and archives are allowed.') {
-    return res.status(400).json({
-      success: false,
-      message: error.message
-    });
-  }
-
-  console.error('Unhandled error:', error);
-  res.status(500).json({
-    success: false,
-    message: 'Internal server error. Please try again later.'
-  });
+  console.error('Error:', error.message);
+  res.status(500).json({ success: false, message: 'Server error occurred.' });
 });
 
-// 404 handler
+// 404 Fallback
 app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Route not found'
-  });
+  res.status(404).json({ success: false, message: 'Route not found.' });
 });
 
-// Start server
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    const baseUrl = BASE_URL.replace(/\/$/, '');
-    console.log(`Server is running on ${baseUrl}`);
-    console.log(`Employee form: ${baseUrl}`);
-    console.log(`Admin dashboard: ${baseUrl}/admin`);
-  });
-}
+// ✅ Always start server (for Render/Vercel)
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🌐 Base URL: ${BASE_URL}`);
+});
 
-// Export for Vercel
+// ✅ Export for Vercel compatibility
 module.exports = app;
