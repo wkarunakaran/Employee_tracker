@@ -1,5 +1,12 @@
-// Global variables
-let BASE_URL = '';
+// =========================
+// ADMIN DASHBOARD SCRIPT
+// =========================
+
+// ✅ Set BASE_URL dynamically (works on both localhost and Render)
+let BASE_URL = window.location.origin + '/';
+console.log("Admin panel connected to API:", BASE_URL);
+
+// Pagination and filter setup
 let currentPage = 1;
 let currentFilters = {
     search: '',
@@ -10,794 +17,173 @@ let currentFilters = {
     dateFrom: '',
     dateTo: ''
 };
+
 let allSubmissions = [];
 let filteredSubmissions = [];
 
-// DOM Elements
-const searchInput = document.getElementById('searchInput');
-const filterToggleBtn = document.getElementById('filterToggleBtn');
-const filterChevron = document.getElementById('filterChevron');
-const filtersSection = document.getElementById('filtersSection');
-const closeFiltersBtn = document.getElementById('closeFiltersBtn');
-const domainFilter = document.getElementById('domainFilter');
-const techLeadFilter = document.getElementById('techLeadFilter');
-const statusFilter = document.getElementById('statusFilter');
-const dateRangeFilter = document.getElementById('dateRangeFilter');
-const dateFromFilter = document.getElementById('dateFromFilter');
-const dateToFilter = document.getElementById('dateToFilter');
-const customDateGroup = document.getElementById('customDateGroup');
-const customDateGroup2 = document.getElementById('customDateGroup2');
-const clearFiltersBtn = document.getElementById('clearFilters');
-const applyFiltersBtn = document.getElementById('applyFilters');
-const refreshBtn = document.getElementById('refreshBtn');
-const loadingSpinner = document.getElementById('loadingSpinner');
-const errorMessage = document.getElementById('errorMessage');
-const errorText = document.getElementById('errorText');
-const tableBody = document.getElementById('tableBody');
-const pagination = document.getElementById('pagination');
-const paginationInfo = document.getElementById('paginationInfo');
-const viewModal = document.getElementById('viewModal');
-const closeModal = document.getElementById('closeModal');
-const modalBody = document.getElementById('modalBody');
-
-// Stats elements
-const totalSubmissionsEl = document.getElementById('totalSubmissions');
-const completedTasksEl = document.getElementById('completedTasks');
-const inProgressTasksEl = document.getElementById('inProgressTasks');
-const pendingTasksEl = document.getElementById('pendingTasks');
-
-// Initialize the application
-document.addEventListener('DOMContentLoaded', async function() {
-    // Fetch BASE_URL from server
+// =========================
+// FETCH SUBMISSIONS
+// =========================
+async function fetchSubmissions() {
     try {
-        const response = await fetch('/api/config');
-        const config = await response.json();
-        BASE_URL = config.BASE_URL;
+        const response = await fetch(`${BASE_URL}/api/employee-progress`);
+        if (!response.ok) throw new Error('Failed to fetch submissions');
+        allSubmissions = await response.json();
+        console.log('Fetched submissions:', allSubmissions);
+
+        applyFilters();
     } catch (error) {
-        console.error('Failed to fetch BASE_URL, using default:', error);
-        BASE_URL = window.location.origin + '/';
-    }
-    
-    // Debug: Check if elements exist
-    console.log('Custom date groups found:', {
-        customDateGroup: !!customDateGroup,
-        customDateGroup2: !!customDateGroup2,
-        dateRangeFilter: !!dateRangeFilter
-    });
-    
-    loadSubmissions();
-    setupEventListeners();
-});
-
-// Setup event listeners
-function setupEventListeners() {
-    // Search input
-    searchInput.addEventListener('input', debounce(handleSearch, 300));
-    
-    // Filter toggle
-    filterToggleBtn.addEventListener('click', toggleFilters);
-    closeFiltersBtn.addEventListener('click', hideFilters);
-    
-    // Filter dropdowns
-    domainFilter.addEventListener('change', handleFilterChange);
-    techLeadFilter.addEventListener('change', handleFilterChange);
-    statusFilter.addEventListener('change', handleFilterChange);
-    
-    // Date range filter
-    if (dateRangeFilter) {
-        dateRangeFilter.addEventListener('change', handleDateRangeChange);
-        console.log('Date range filter event listener added');
-    } else {
-        console.error('Date range filter element not found!');
-    }
-    
-    if (dateFromFilter) {
-        dateFromFilter.addEventListener('change', handleFilterChange);
-    }
-    if (dateToFilter) {
-        dateToFilter.addEventListener('change', handleFilterChange);
-    }
-    
-    // Filter actions
-    clearFiltersBtn.addEventListener('click', clearAllFilters);
-    applyFiltersBtn.addEventListener('click', applyFiltersAndHide);
-    
-    // Refresh button
-    refreshBtn.addEventListener('click', loadSubmissions);
-    
-    // Modal close
-    closeModal.addEventListener('click', closeViewModal);
-    viewModal.addEventListener('click', function(e) {
-        if (e.target === viewModal) {
-            closeViewModal();
-        }
-    });
-    
-    // Escape key to close modal
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && viewModal.style.display === 'block') {
-            closeViewModal();
-        }
-    });
-}
-
-// Debounce function for search
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
-
-// Toggle filters panel
-function toggleFilters() {
-    if (filtersSection.classList.contains('show')) {
-        hideFilters();
-    } else {
-        showFilters();
+        console.error('Error fetching submissions:', error);
+        alert('Error loading data. Please try again later.');
     }
 }
 
-// Show filters panel
-function showFilters() {
-    filtersSection.classList.add('show');
-    filterToggleBtn.classList.add('active');
-    filterChevron.style.transform = 'rotate(180deg)';
-}
-
-// Hide filters panel
-function hideFilters() {
-    filtersSection.classList.remove('show');
-    filterToggleBtn.classList.remove('active');
-    filterChevron.style.transform = 'rotate(0deg)';
-}
-
-// Apply filters and hide panel
-function applyFiltersAndHide() {
-    applyFilters();
-    hideFilters();
-}
-
-// Load submissions from API
-async function loadSubmissions() {
-    try {
-        showLoading(true);
-        hideError();
-        
-        const response = await fetch(`${BASE_URL}api/employee-progress`, {
-            credentials: 'include'
-        });
-        const result = await response.json();
-        
-        if (result.success) {
-            allSubmissions = result.data;
-            updateStats();
-            applyFilters();
-        } else {
-            showError(result.message || 'Failed to load submissions');
-        }
-    } catch (error) {
-        console.error('Error loading submissions:', error);
-        showError('Network error. Please check your connection and try again.');
-    } finally {
-        showLoading(false);
-    }
-}
-
-// Handle search input
-function handleSearch(e) {
-    currentFilters.search = e.target.value.toLowerCase();
-    currentPage = 1;
-    applyFilters();
-}
-
-// Handle filter changes
-function handleFilterChange(e) {
-    const filterType = e.target.id.replace('Filter', '');
-    currentFilters[filterType] = e.target.value;
-    currentPage = 1;
-    applyFilters();
-}
-
-// Handle date range changes
-function handleDateRangeChange(e) {
-    const dateRange = e.target.value;
-    currentFilters.dateRange = dateRange;
-    
-    console.log('Date range changed to:', dateRange); // Debug log
-    
-    // Show/hide custom date inputs
-    if (dateRange === 'custom') {
-        console.log('Showing custom date inputs'); // Debug log
-        customDateGroup.classList.add('show');
-        customDateGroup2.classList.add('show');
-        // Fallback using inline styles
-        customDateGroup.style.display = 'flex';
-        customDateGroup2.style.display = 'flex';
-    } else {
-        console.log('Hiding custom date inputs'); // Debug log
-        customDateGroup.classList.remove('show');
-        customDateGroup2.classList.remove('show');
-        // Fallback using inline styles
-        customDateGroup.style.display = 'none';
-        customDateGroup2.style.display = 'none';
-        
-        // Set date range based on selection
-        const today = new Date();
-        let fromDate = '';
-        let toDate = '';
-        
-        switch (dateRange) {
-            case 'today':
-                fromDate = toDate = formatDateForInput(today);
-                break;
-            case 'yesterday':
-                const yesterday = new Date(today);
-                yesterday.setDate(yesterday.getDate() - 1);
-                fromDate = toDate = formatDateForInput(yesterday);
-                break;
-            case 'thisWeek':
-                const startOfWeek = new Date(today);
-                startOfWeek.setDate(today.getDate() - today.getDay());
-                fromDate = formatDateForInput(startOfWeek);
-                toDate = formatDateForInput(today);
-                break;
-            case 'lastWeek':
-                const lastWeekStart = new Date(today);
-                lastWeekStart.setDate(today.getDate() - today.getDay() - 7);
-                const lastWeekEnd = new Date(today);
-                lastWeekEnd.setDate(today.getDate() - today.getDay() - 1);
-                fromDate = formatDateForInput(lastWeekStart);
-                toDate = formatDateForInput(lastWeekEnd);
-                break;
-            case 'thisMonth':
-                const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-                fromDate = formatDateForInput(startOfMonth);
-                toDate = formatDateForInput(today);
-                break;
-            case 'lastMonth':
-                const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-                const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
-                fromDate = formatDateForInput(lastMonthStart);
-                toDate = formatDateForInput(lastMonthEnd);
-                break;
-            case 'all':
-            default:
-                fromDate = '';
-                toDate = '';
-                break;
-        }
-        
-        currentFilters.dateFrom = fromDate;
-        currentFilters.dateTo = toDate;
-        dateFromFilter.value = fromDate;
-        dateToFilter.value = toDate;
-    }
-    
-    currentPage = 1;
-    applyFilters();
-}
-
-// Helper function to format date for input
-function formatDateForInput(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-// Apply filters and update display
+// =========================
+// APPLY FILTERS
+// =========================
 function applyFilters() {
-    filteredSubmissions = allSubmissions.filter(submission => {
-        const matchesSearch = !currentFilters.search || 
-            submission.internName.toLowerCase().includes(currentFilters.search) ||
-            submission.internEmail.toLowerCase().includes(currentFilters.search) ||
-            submission.internId.toLowerCase().includes(currentFilters.search);
-        
-        const matchesDomain = currentFilters.domain === 'all' || 
-            submission.internDomain === currentFilters.domain;
-        
-        const matchesTechLead = currentFilters.techLead === 'all' || 
-            submission.techLeadName === currentFilters.techLead;
-        
-        const matchesStatus = currentFilters.status === 'all' || 
-            submission.workStatus === currentFilters.status;
-        
-        // Date filtering
-        const submissionDate = new Date(submission.date);
-        const fromDate = currentFilters.dateFrom ? new Date(currentFilters.dateFrom) : null;
-        const toDate = currentFilters.dateTo ? new Date(currentFilters.dateTo) : null;
-        
-        let matchesDate = true;
-        if (fromDate) {
-            matchesDate = matchesDate && submissionDate >= fromDate;
-        }
-        if (toDate) {
-            // Add one day to include the entire "to date"
-            const toDatePlusOne = new Date(toDate);
-            toDatePlusOne.setDate(toDatePlusOne.getDate() + 1);
-            matchesDate = matchesDate && submissionDate < toDatePlusOne;
-        }
-        
-        return matchesSearch && matchesDomain && matchesTechLead && matchesStatus && matchesDate;
+    const search = currentFilters.search.toLowerCase();
+    const domain = currentFilters.domain;
+    const techLead = currentFilters.techLead;
+    const status = currentFilters.status;
+    const dateFrom = currentFilters.dateFrom ? new Date(currentFilters.dateFrom) : null;
+    const dateTo = currentFilters.dateTo ? new Date(currentFilters.dateTo) : null;
+
+    filteredSubmissions = allSubmissions.filter(sub => {
+        const matchSearch =
+            sub.name.toLowerCase().includes(search) ||
+            sub.email.toLowerCase().includes(search) ||
+            sub.domain.toLowerCase().includes(search) ||
+            sub.techLead.toLowerCase().includes(search);
+
+        const matchDomain = domain === 'all' || sub.domain === domain;
+        const matchLead = techLead === 'all' || sub.techLead === techLead;
+        const matchStatus = status === 'all' || sub.status === status;
+
+        const createdDate = new Date(sub.createdAt);
+        const matchDate =
+            (!dateFrom || createdDate >= dateFrom) &&
+            (!dateTo || createdDate <= dateTo);
+
+        return matchSearch && matchDomain && matchLead && matchStatus && matchDate;
     });
-    
-    updateStats();
-    renderTable();
-    renderPagination();
+
+    renderSubmissions();
 }
 
-// Clear all filters
-function clearAllFilters() {
-    searchInput.value = '';
-    domainFilter.value = 'all';
-    techLeadFilter.value = 'all';
-    statusFilter.value = 'all';
-    dateRangeFilter.value = 'all';
-    dateFromFilter.value = '';
-    dateToFilter.value = '';
-    customDateGroup.classList.remove('show');
-    customDateGroup2.classList.remove('show');
-    // Fallback using inline styles
-    customDateGroup.style.display = 'none';
-    customDateGroup2.style.display = 'none';
-    
-    currentFilters = {
-        search: '',
-        domain: 'all',
-        techLead: 'all',
-        status: 'all',
-        dateRange: 'all',
-        dateFrom: '',
-        dateTo: ''
-    };
-    
-    currentPage = 1;
-    applyFilters();
-    hideFilters();
-}
-
-// Update statistics
-function updateStats() {
-    const total = filteredSubmissions.length;
-    const completed = filteredSubmissions.filter(s => s.workStatus === 'Completed').length;
-    const inProgress = filteredSubmissions.filter(s => s.workStatus === 'In Progress').length;
-    const pending = filteredSubmissions.filter(s => s.workStatus === 'Pending').length;
-    
-    totalSubmissionsEl.textContent = total;
-    completedTasksEl.textContent = completed;
-    inProgressTasksEl.textContent = inProgress;
-    pendingTasksEl.textContent = pending;
-}
-
-// Render table
-function renderTable() {
-    const itemsPerPage = 10;
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const pageSubmissions = filteredSubmissions.slice(startIndex, endIndex);
-    
+// =========================
+// RENDER SUBMISSIONS TABLE
+// =========================
+function renderSubmissions() {
+    const tableBody = document.querySelector('#submissionsTable tbody');
     tableBody.innerHTML = '';
-    
-    if (pageSubmissions.length === 0) {
-        tableBody.innerHTML = `
+
+    if (filteredSubmissions.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="8">No submissions found</td></tr>';
+        return;
+    }
+
+    const startIndex = (currentPage - 1) * 10;
+    const pageData = filteredSubmissions.slice(startIndex, startIndex + 10);
+
+    pageData.forEach(sub => {
+        const row = `
             <tr>
-                <td colspan="10" style="text-align: center; padding: 40px; color: #64748B;">
-                    <i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
-                    No submissions found
+                <td>${sub.name}</td>
+                <td>${sub.email}</td>
+                <td>${sub.domain}</td>
+                <td>${sub.techLead}</td>
+                <td>${sub.status}</td>
+                <td>${new Date(sub.createdAt).toLocaleDateString()}</td>
+                <td>
+                    <a href="${sub.filePath}" target="_blank">View File</a>
+                </td>
+                <td>
+                    <button onclick="deleteSubmission('${sub._id}')">🗑️ Delete</button>
                 </td>
             </tr>
         `;
-        return;
-    }
-    
-    pageSubmissions.forEach(submission => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${submission.internName}</td>
-            <td>${submission.internEmail}</td>
-            <td>${submission.internId}</td>
-            <td>${submission.internDomain}</td>
-            <td>${formatDate(submission.date)}</td>
-            <td>${formatDateTime(submission.formSubmissionTime || submission.submissionTimestamp)}</td>
-            <td>${submission.techLeadName}</td>
-            <td>${truncateText(submission.assignedTask, 30)}</td>
-            <td><span class="status-badge status-${submission.workStatus.toLowerCase().replace(' ', '-')}">${submission.workStatus}</span></td>
-            <td>
-                <button class="btn-view" onclick="viewSubmission('${submission._id}')">
-                    <i class="fas fa-eye"></i>
-                    View
-                </button>
-            </td>
-        `;
-        tableBody.appendChild(row);
+        tableBody.insertAdjacentHTML('beforeend', row);
     });
-    
-    // Update pagination info
-    const totalPages = Math.ceil(filteredSubmissions.length / itemsPerPage);
-    const startEntry = startIndex + 1;
-    const endEntry = Math.min(endIndex, filteredSubmissions.length);
-    
-    let dateInfo = '';
-    if (currentFilters.dateFrom || currentFilters.dateTo) {
-        const fromDate = currentFilters.dateFrom ? new Date(currentFilters.dateFrom).toLocaleDateString() : 'Start';
-        const toDate = currentFilters.dateTo ? new Date(currentFilters.dateTo).toLocaleDateString() : 'End';
-        dateInfo = ` (${fromDate} - ${toDate})`;
-    }
-    
-    paginationInfo.textContent = `Showing ${startEntry}-${endEntry} of ${filteredSubmissions.length} entries${dateInfo}`;
+
+    renderPagination();
 }
 
-// Render pagination
+// =========================
+// PAGINATION
+// =========================
 function renderPagination() {
-    const itemsPerPage = 10;
-    const totalPages = Math.ceil(filteredSubmissions.length / itemsPerPage);
-    
-    if (totalPages <= 1) {
-        pagination.innerHTML = '';
-        return;
-    }
-    
-    let paginationHTML = '';
-    
-    // Previous button
-    paginationHTML += `
-        <button ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})">
-            <i class="fas fa-chevron-left"></i>
-        </button>
-    `;
-    
-    // Page numbers
-    const startPage = Math.max(1, currentPage - 2);
-    const endPage = Math.min(totalPages, currentPage + 2);
-    
-    if (startPage > 1) {
-        paginationHTML += `<button onclick="changePage(1)">1</button>`;
-        if (startPage > 2) {
-            paginationHTML += `<span>...</span>`;
-        }
-    }
-    
-    for (let i = startPage; i <= endPage; i++) {
-        paginationHTML += `
-            <button class="${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">
-                ${i}
-            </button>
-        `;
-    }
-    
-    if (endPage < totalPages) {
-        if (endPage < totalPages - 1) {
-            paginationHTML += `<span>...</span>`;
-        }
-        paginationHTML += `<button onclick="changePage(${totalPages})">${totalPages}</button>`;
-    }
-    
-    // Next button
-    paginationHTML += `
-        <button ${currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${currentPage + 1})">
-            <i class="fas fa-chevron-right"></i>
-        </button>
-    `;
-    
-    pagination.innerHTML = paginationHTML;
-}
-
-// Change page
-function changePage(page) {
     const totalPages = Math.ceil(filteredSubmissions.length / 10);
-    if (page >= 1 && page <= totalPages) {
-        currentPage = page;
-        renderTable();
-        renderPagination();
-    }
-}
+    const pagination = document.getElementById('pagination');
+    pagination.innerHTML = '';
 
-// View submission details
-async function viewSubmission(id) {
-    try {
-        const response = await fetch(`${BASE_URL}api/employee-progress/${id}`, {
-            credentials: 'include'
+    for (let i = 1; i <= totalPages; i++) {
+        const btn = document.createElement('button');
+        btn.textContent = i;
+        if (i === currentPage) btn.classList.add('active');
+        btn.addEventListener('click', () => {
+            currentPage = i;
+            renderSubmissions();
         });
-        const result = await response.json();
-        
-        if (result.success) {
-            displaySubmissionModal(result.data);
-        } else {
-            showError(result.message || 'Failed to load submission details');
-        }
-    } catch (error) {
-        console.error('Error loading submission details:', error);
-        showError('Network error. Please try again.');
+        pagination.appendChild(btn);
     }
 }
 
-// Display submission in modal
-function displaySubmissionModal(submission) {
-    const fileAttachments = submission.fileAttachments || [];
-    let fileHTML = '';
-    
-    if (fileAttachments.length > 0) {
-        fileHTML = `
-            <div class="file-attachment">
-                <div class="file-preview">
-                    ${fileAttachments.map(file => getFilePreview(file, submission._id)).join('')}
-                </div>
-            </div>
-        `;
-    } else {
-        fileHTML = '<p style="color: #64748B; font-style: italic;">No files attached</p>';
-    }
-    
-    modalBody.innerHTML = `
-        <div class="detail-section">
-            <h3><i class="fas fa-user"></i> Personal Information</h3>
-            <div class="detail-grid">
-                <div class="detail-item">
-                    <label>Intern Name</label>
-                    <span>${submission.internName}</span>
-                </div>
-                <div class="detail-item">
-                    <label>Email</label>
-                    <span>${submission.internEmail}</span>
-                </div>
-                <div class="detail-item">
-                    <label>Intern ID</label>
-                    <span>${submission.internId}</span>
-                </div>
-                <div class="detail-item">
-                    <label>Domain</label>
-                    <span>${submission.internDomain}</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="detail-section">
-            <h3><i class="fas fa-briefcase"></i> Work Information</h3>
-            <div class="detail-grid">
-                <div class="detail-item">
-                    <label>Date</label>
-                    <span>${formatDate(submission.date)}</span>
-                </div>
-                <div class="detail-item">
-                    <label>Form Submission Time</label>
-                    <span>${formatDateTime(submission.formSubmissionTime || submission.submissionTimestamp)}</span>
-                </div>
-                <div class="detail-item">
-                    <label>Tech Lead</label>
-                    <span>${submission.techLeadName}</span>
-                </div>
-                <div class="detail-item">
-                    <label>Work Status</label>
-                    <span class="status-badge status-${submission.workStatus.toLowerCase().replace(' ', '-')}">${submission.workStatus}</span>
-                </div>
-            </div>
-            <div class="detail-item" style="margin-top: 15px;">
-                <label>Assigned Task / Work / Learning Module</label>
-                <span>${submission.assignedTask}</span>
-            </div>
-        </div>
-        
-        <div class="detail-section">
-            <h3><i class="fas fa-clipboard-list"></i> Progress Details</h3>
-            <div class="detail-item">
-                <label>What you learned today</label>
-                <textarea readonly>${submission.learnedToday || 'Not provided'}</textarea>
-            </div>
-            <div class="detail-item">
-                <label>Work description</label>
-                <textarea readonly>${submission.workDescription || 'Not provided'}</textarea>
-            </div>
-            <div class="detail-item">
-                <label>Challenges faced</label>
-                <textarea readonly>${submission.challengesFaced || 'Not provided'}</textarea>
-            </div>
-            <div class="detail-item">
-                <label>Support or resources required</label>
-                <textarea readonly>${submission.supportRequired || 'Not provided'}</textarea>
-            </div>
-        </div>
-        
-        <div class="detail-section">
-            <h3><i class="fas fa-paperclip"></i> File Attachment</h3>
-            ${fileHTML}
-        </div>
-    `;
-    
-    viewModal.style.display = 'block';
-    document.body.style.overflow = 'hidden';
-}
+// =========================
+// DELETE SUBMISSION
+// =========================
+async function deleteSubmission(id) {
+    if (!confirm('Are you sure you want to delete this submission?')) return;
 
-// Close view modal
-function closeViewModal() {
-    viewModal.style.display = 'none';
-    document.body.style.overflow = 'auto';
-}
-
-// Utility functions
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-    });
-}
-
-function formatDateTime(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-    });
-}
-
-function formatTime12Hour(timeString) {
-    if (!timeString) return '';
-    
-    // If it's already in 12-hour format, return as is
-    if (timeString.includes('AM') || timeString.includes('PM')) {
-        return timeString;
-    }
-    
-    // Convert 24-hour format to 12-hour format
-    const [hours, minutes] = timeString.split(':');
-    const hour24 = parseInt(hours);
-    
-    let hour12 = hour24;
-    let period = 'AM';
-    
-    if (hour24 === 0) {
-        hour12 = 12;
-    } else if (hour24 === 12) {
-        period = 'PM';
-    } else if (hour24 > 12) {
-        hour12 = hour24 - 12;
-        period = 'PM';
-    }
-    
-    return `${hour12}:${minutes} ${period}`;
-}
-
-function truncateText(text, maxLength) {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
-}
-
-function getFileIcon(mimeType) {
-    if (mimeType.startsWith('image/')) {
-        return 'fas fa-image';
-    } else if (mimeType === 'application/pdf') {
-        return 'fas fa-file-pdf';
-    } else if (mimeType.includes('word') || mimeType.includes('document')) {
-        return 'fas fa-file-word';
-    } else if (mimeType.includes('zip') || mimeType.includes('rar')) {
-        return 'fas fa-file-archive';
-    } else if (mimeType.includes('text')) {
-        return 'fas fa-file-alt';
-    } else {
-        return 'fas fa-file';
-    }
-}
-
-function formatFileSize(bytes) {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-function getFilePreview(fileAttachment, submissionId) {
-    const mimeType = fileAttachment.mimeType;
-    const filePath = `/uploads/${fileAttachment.fileName}`;
-    const fileIcon = getFileIcon(mimeType);
-    const fileSize = formatFileSize(fileAttachment.fileSize);
-    
-    return `
-        <div class="file-list-item">
-            <div class="file-info">
-                <div class="file-icon">
-                    <i class="${fileIcon}"></i>
-                </div>
-                <div class="file-details">
-                    <div class="file-name">${fileAttachment.originalName}</div>
-                    <div class="file-meta">${fileSize} • ${mimeType}</div>
-                </div>
-            </div>
-            <div class="file-actions">
-                <a href="${filePath}" target="_blank" class="btn-open-new-tab">
-                    <i class="fas fa-external-link-alt"></i>
-                    Open
-                </a>
-                <a href="${filePath}" download="${fileAttachment.originalName}" class="btn-download">
-                    <i class="fas fa-download"></i>
-                    Download
-                </a>
-                <button onclick="deleteFile('${submissionId}', '${fileAttachment.fileName}')" class="btn-delete">
-                    <i class="fas fa-trash"></i>
-                    Delete
-                </button>
-            </div>
-        </div>
-    `;
-}
-
-function showLoading(show) {
-    loadingSpinner.style.display = show ? 'block' : 'none';
-    refreshBtn.disabled = show;
-}
-
-function showError(message) {
-    errorText.textContent = message;
-    errorMessage.style.display = 'flex';
-}
-
-function hideError() {
-    errorMessage.style.display = 'none';
-}
-
-// Delete file function
-async function deleteFile(submissionId, fileName) {
-    if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
-        return;
-    }
-    
     try {
-        const response = await fetch(`${BASE_URL}api/employee-progress/${submissionId}/files/${fileName}`, {
-            credentials: 'include',
+        const response = await fetch(`${BASE_URL}/api/employee-progress/${id}`, {
             method: 'DELETE'
         });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            // Refresh the modal to show updated file list
-            await viewSubmission(submissionId);
-            showSuccess('File deleted successfully');
-        } else {
-            showError(result.message || 'Failed to delete file');
-        }
+
+        if (!response.ok) throw new Error('Failed to delete submission');
+
+        alert('Submission deleted successfully');
+        fetchSubmissions();
     } catch (error) {
-        console.error('Error deleting file:', error);
-        showError('Network error. Please try again.');
+        console.error('Error deleting submission:', error);
+        alert('Error deleting submission');
     }
 }
 
-// Show success message
-function showSuccess(message) {
-    // Create a temporary success message
-    const successDiv = document.createElement('div');
-    successDiv.className = 'success-message';
-    successDiv.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #10B981;
-        color: white;
-        padding: 12px 20px;
-        border-radius: 8px;
-        z-index: 10000;
-        font-weight: 500;
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-    `;
-    successDiv.innerHTML = `<i class="fas fa-check-circle" style="margin-right: 8px;"></i>${message}`;
-    
-    document.body.appendChild(successDiv);
-    
-    // Remove after 3 seconds
-    setTimeout(() => {
-        if (successDiv.parentNode) {
-            successDiv.parentNode.removeChild(successDiv);
-        }
-    }, 3000);
-}
+// =========================
+// FILTER HANDLERS
+// =========================
+document.getElementById('searchInput').addEventListener('input', e => {
+    currentFilters.search = e.target.value;
+    applyFilters();
+});
+
+document.getElementById('domainFilter').addEventListener('change', e => {
+    currentFilters.domain = e.target.value;
+    applyFilters();
+});
+
+document.getElementById('techLeadFilter').addEventListener('change', e => {
+    currentFilters.techLead = e.target.value;
+    applyFilters();
+});
+
+document.getElementById('statusFilter').addEventListener('change', e => {
+    currentFilters.status = e.target.value;
+    applyFilters();
+});
+
+document.getElementById('dateFrom').addEventListener('change', e => {
+    currentFilters.dateFrom = e.target.value;
+    applyFilters();
+});
+
+document.getElementById('dateTo').addEventListener('change', e => {
+    currentFilters.dateTo = e.target.value;
+    applyFilters();
+});
+
+// =========================
+// INITIAL LOAD
+// =========================
+document.addEventListener('DOMContentLoaded', fetchSubmissions);
