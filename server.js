@@ -11,19 +11,19 @@ const EmployeeProgress = require('./models/EmployeeProgress');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ Allow CORS for frontend on same domain (Render)
+// =========================
+// ✅ MIDDLEWARE SETUP
+// =========================
 app.use(
   cors({
-    origin: "*",
+    origin: "*", // Allow all origins (or restrict to your domain if needed)
     credentials: true,
   })
 );
-
-// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Session configuration
+// ✅ Session Configuration
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'proeduvate-secret-key-2024',
@@ -37,7 +37,7 @@ app.use(
   })
 );
 
-// ✅ Serve static frontend files
+// ✅ Static Files
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -47,7 +47,9 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// ✅ Multer configuration
+// =========================
+// ✅ Multer File Upload Config
+// =========================
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'uploads/'),
   filename: (req, file, cb) => {
@@ -55,7 +57,6 @@ const storage = multer.diskStorage({
     cb(null, `${file.fieldname}-${uniqueSuffix}${path.extname(file.originalname)}`);
   },
 });
-
 const fileFilter = (req, file, cb) => {
   const allowed = /jpeg|jpg|png|gif|pdf|doc|docx|zip|rar|txt/;
   const extname = allowed.test(path.extname(file.originalname).toLowerCase());
@@ -63,7 +64,6 @@ const fileFilter = (req, file, cb) => {
   if (mimetype && extname) cb(null, true);
   else cb(new Error('Invalid file type.'));
 };
-
 const upload = multer({
   storage,
   limits: {
@@ -73,7 +73,9 @@ const upload = multer({
   fileFilter,
 });
 
-// ✅ MongoDB connection
+// =========================
+// ✅ MongoDB Connection
+// =========================
 const mongoUri =
   process.env.MONGODB_URI ||
   `mongodb+srv://${process.env.USERNAME}:${encodeURIComponent(process.env.PASSWORD)}@${
@@ -85,15 +87,25 @@ mongoose
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch((err) => console.error('❌ MongoDB connection error:', err));
 
+// =========================
 // ✅ Admin Credentials
+// =========================
 const ADMIN_USERNAME = process.env.LOGIN_USERNAME || 'Login@proEduvate';
 const ADMIN_PASSWORD = process.env.LOGIN_PASSWORD || 'Pass@proEduvate';
 
-// Routes
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.get('/admin-login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin-login.html')));
+// =========================
+// ✅ Routes
+// =========================
 
-// Admin Authentication
+// 🔹 Home Page
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
+// 🔹 Admin Login Page
+app.get('/admin-login', (req, res) =>
+  res.sendFile(path.join(__dirname, 'public', 'admin-login.html'))
+);
+
+// 🔹 Admin Login API
 app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body;
   if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
@@ -104,6 +116,7 @@ app.post('/api/admin/login', (req, res) => {
   return res.status(401).json({ success: false, message: 'Invalid credentials' });
 });
 
+// 🔹 Admin Logout
 app.post('/api/admin/logout', (req, res) => {
   req.session.destroy((err) => {
     if (err) return res.status(500).json({ success: false, message: 'Logout failed' });
@@ -111,19 +124,25 @@ app.post('/api/admin/logout', (req, res) => {
   });
 });
 
+// 🔹 Admin Auth Status
 app.get('/api/admin/auth-status', (req, res) => {
   if (req.session?.isAuthenticated)
     return res.json({ success: true, authenticated: true, user: req.session.adminUser });
   res.json({ success: true, authenticated: false });
 });
 
+// 🔹 Admin Panel Access
 app.get('/admin', (req, res) => {
   if (req.session?.isAuthenticated)
     return res.sendFile(path.join(__dirname, 'public', 'admin.html'));
   res.redirect('/admin-login');
 });
 
-// ✅ Submit Employee Progress
+// =========================
+// ✅ EMPLOYEE PROGRESS APIs
+// =========================
+
+// 🔹 Submit Employee Progress
 app.post('/api/employee-progress', upload.array('fileAttachment', 10), async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1)
@@ -145,8 +164,18 @@ app.post('/api/employee-progress', upload.array('fileAttachment', 10), async (re
       formSubmissionTime,
     } = req.body;
 
-    if (!internName || !internEmail || !internId || !internDomain || !date || !techLeadName || !assignedTask || !workStatus)
+    if (
+      !internName ||
+      !internEmail ||
+      !internId ||
+      !internDomain ||
+      !date ||
+      !techLeadName ||
+      !assignedTask ||
+      !workStatus
+    ) {
       return res.status(400).json({ success: false, message: 'All required fields must be filled.' });
+    }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(internEmail))
@@ -156,7 +185,7 @@ app.post('/api/employee-progress', upload.array('fileAttachment', 10), async (re
       req.files?.map((f) => ({
         originalName: f.originalname,
         fileName: f.filename,
-        filePath: f.path,
+        filePath: `/uploads/${f.filename}`,
         fileSize: f.size,
         mimeType: f.mimetype,
       })) || [];
@@ -186,18 +215,46 @@ app.post('/api/employee-progress', upload.array('fileAttachment', 10), async (re
   }
 });
 
+// 🔹 Fetch All Submissions (Admin Dashboard)
+app.get('/api/employee-progress', async (req, res) => {
+  try {
+    const submissions = await EmployeeProgress.find().sort({ createdAt: -1 });
+    res.json(submissions);
+  } catch (error) {
+    console.error('❌ Error fetching submissions:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch submissions.' });
+  }
+});
+
+// 🔹 Delete Submission
+app.delete('/api/employee-progress/:id', async (req, res) => {
+  try {
+    await EmployeeProgress.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Submission deleted successfully.' });
+  } catch (error) {
+    console.error('❌ Error deleting submission:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete submission.' });
+  }
+});
+
+// =========================
 // ✅ Error Handling
+// =========================
 app.use((err, req, res, next) => {
   console.error('⚠️ Error:', err.message);
   res.status(500).json({ success: false, message: 'Server error occurred.' });
 });
 
-// ✅ Catch-all (for frontend routes)
+// =========================
+// ✅ Catch-all Route (Frontend SPA Fallback)
+// =========================
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// =========================
 // ✅ Start Server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+// =========================
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
