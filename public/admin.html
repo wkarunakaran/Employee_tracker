@@ -1,345 +1,93 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proeduvate | Admin Dashboard</title>
-    <link rel="stylesheet" href="admin.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Login | ProEduvate Employee Tracker</title>
+  <link rel="stylesheet" href="admin.css" />
+  <style>
+    body {
+      background: #f4f7fb;
+      font-family: "Poppins", sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .login-container {
+      background: #fff;
+      padding: 40px 50px;
+      border-radius: 20px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      width: 360px;
+      text-align: center;
+    }
+    .login-container h2 {
+      margin-bottom: 30px;
+      color: #2d3e50;
+      font-weight: 600;
+    }
+    .input-group {
+      text-align: left;
+      margin-bottom: 20px;
+    }
+    label {
+      font-size: 14px;
+      color: #555;
+      display: block;
+      margin-bottom: 5px;
+    }
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 15px;
+    }
+    input:focus {
+      border-color: #4a90e2;
+      outline: none;
+    }
+    .login-btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      background: #4a90e2;
+      color: #fff;
+      font-size: 16px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: 0.3s ease;
+    }
+    .login-btn:hover {
+      background: #357abd;
+    }
+    .footer-text {
+      font-size: 13px;
+      margin-top: 20px;
+      color: #666;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <header class="header">
-            <div class="navbar">
-                <!-- Left Section - Branding -->
-                <div class="navbar-brand">
-                    <img src="assets/proeduvate_logo.png" alt="Proeduvate Logo" class="navbar-logo">
-                </div>
-                
-                <!-- Center Section - Navigation -->
-                <nav class="navbar-nav">
-                    <a href="#" class="nav-link active">Dashboard</a>
-                </nav>
-                
-                <!-- Right Section - User Profile -->
-                <div class="navbar-user">
-                    <div class="user-avatar">
-                        <span>A</span>
-                    </div>
-                    <div class="user-info">
-                        <span class="user-name">Admin User</span>
-                        <i class="fas fa-chevron-down user-dropdown"></i>
-                    </div>
-                </div>
-                
-                <!-- Mobile Menu Button -->
-                <button class="mobile-menu-btn">
-                    <i class="fas fa-bars"></i>
-                </button>
-            </div>
-        </header>
+  <div class="login-container">
+    <h2>Admin Login</h2>
+    <form id="adminLoginForm">
+      <div class="input-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" placeholder="Enter admin username" required />
+      </div>
+      <div class="input-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="Enter admin password" required />
+      </div>
+      <button type="submit" class="login-btn">Login</button>
+    </form>
+    <p class="footer-text">© 2025 ProEduvate | Admin Access Only</p>
+  </div>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Search and Filter Bar -->
-            <div class="search-filter-bar">
-                <div class="search-container">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="searchInput" placeholder="Search by name, email, or ID...">
-                </div>
-                <button id="filterToggleBtn" class="btn-filter">
-                    <i class="fas fa-filter"></i>
-                    Filters
-                    <i class="fas fa-chevron-up" id="filterChevron"></i>
-                </button>
-            </div>
-
-            <!-- Filters Section -->
-            <div class="filters-section" id="filtersSection">
-                <div class="filters-header">
-                    <h3>Filter Options</h3>
-                    <button id="closeFiltersBtn" class="btn-close-filters">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                
-                <div class="filters">
-                    <div class="filter-group">
-                        <label for="domainFilter">Domain</label>
-                        <select id="domainFilter">
-                            <option value="all">All Domains</option>
-                            <option value="Full Stack">Full Stack</option>
-                            <option value="Frontend">Frontend</option>
-                            <option value="Backend">Backend</option>
-                            <option value="AIML">AIML</option>
-                            <option value="Database Management">Database Management</option>
-                            <option value="Cloud Technologies">Cloud Technologies</option>
-                            <option value="Cyber Security">Cyber Security</option>
-                            <option value="Data Engineering">Data Engineering</option>
-                            <option value="Data Visualization">Data Visualization</option>
-                            <option value="Testing">Testing</option>
-                            <option value="Others">Others</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label for="techLeadFilter">Tech Lead</label>
-                        <select id="techLeadFilter">
-                            <option value="all">All Tech Leads</option>
-                            <option value="Balamanikandan">Balamanikandan</option>
-                            <option value="Karunamoorthy S">Karunamoorthy S</option>
-                            <option value="Dharshini">Dharshini</option>
-                            <option value="Dhanush Chakravarthy">Dhanush Chakravarthy</option>
-                            <option value="Gowtham">Gowtham</option>
-                            <option value="Dowlath Nisha">Dowlath Nisha</option>
-                            <option value="KarunaKaran">KarunaKaran</option>
-                            <option value="Sachin">Sachin</option>
-                            <option value="Martin">Martin</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label for="statusFilter">Status</label>
-                        <select id="statusFilter">
-                            <option value="all">All Status</option>
-                            <option value="Completed">Completed</option>
-                            <option value="In Progress">In Progress</option>
-                            <option value="Pending">Pending</option>
-                            <option value="Blocked">Blocked</option>
-                            <option value="On Hold">On Hold</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label for="dateRangeFilter">Quick Date Range</label>
-                        <select id="dateRangeFilter">
-                            <option value="all">All Time</option>
-                            <option value="today">Today</option>
-                            <option value="yesterday">Yesterday</option>
-                            <option value="thisWeek">This Week</option>
-                            <option value="lastWeek">Last Week</option>
-                            <option value="thisMonth">This Month</option>
-                            <option value="lastMonth">Last Month</option>
-                            <option value="custom">Custom Range</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group" id="customDateGroup" style="display: none;">
-                        <label for="dateFromFilter">From Date</label>
-                        <input type="date" id="dateFromFilter" placeholder="Select start date">
-                    </div>
-                    
-                    <div class="filter-group" id="customDateGroup2" style="display: none;">
-                        <label for="dateToFilter">To Date</label>
-                        <input type="date" id="dateToFilter" placeholder="Select end date">
-                    </div>
-                    
-                    <div class="filters-actions">
-                        <button id="clearFilters" class="btn-clear">
-                            Clear All
-                        </button>
-                        <button id="applyFilters" class="btn-apply">
-                            Apply Filters
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Stats Cards -->
-            <div class="stats-section">
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-users"></i>
-                    </div>
-                    <div class="stat-content">
-                        <h3 id="totalSubmissions">0</h3>
-                        <p>Total Submissions</p>
-                    </div>
-                </div>
-                
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
-                    <div class="stat-content">
-                        <h3 id="completedTasks">0</h3>
-                        <p>Completed Tasks</p>
-                    </div>
-                </div>
-                
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-clock"></i>
-                    </div>
-                    <div class="stat-content">
-                        <h3 id="inProgressTasks">0</h3>
-                        <p>In Progress</p>
-                    </div>
-                </div>
-                
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-exclamation-triangle"></i>
-                    </div>
-                    <div class="stat-content">
-                        <h3 id="pendingTasks">0</h3>
-                        <p>Pending Tasks</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Table Section -->
-            <div class="table-section">
-                <div class="table-header">
-                    <h2>Employee Progress Submissions</h2>
-                    <div class="table-actions">
-                        <button id="refreshBtn" class="btn-refresh">
-                            <i class="fas fa-sync-alt"></i>
-                            Refresh
-                        </button>
-                        <div class="pagination-info">
-                            <span id="paginationInfo">Showing 0 of 0 entries</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Loading Spinner -->
-                <div id="loadingSpinner" class="loading-container">
-                    <div class="loading-spinner"></div>
-                    <p>Loading submissions...</p>
-                </div>
-
-                <!-- Error Message -->
-                <div id="errorMessage" class="error-message" style="display: none;">
-                    <i class="fas fa-exclamation-circle"></i>
-                    <span id="errorText">Failed to load submissions. Please try again.</span>
-                </div>
-
-                <!-- Table -->
-                <div class="table-container">
-                    <table id="submissionsTable">
-                        <thead>
-                            <tr>
-                                <th>Intern Name</th>
-                                <th>Email</th>
-                                <th>ID</th>
-                                <th>Domain</th>
-                                <th>Date</th>
-                                <th>Form Sub. Time</th>
-                                <th>Tech Lead</th>
-                                <th>Task</th>
-                                <th>Status</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tableBody">
-                            <!-- Data will be populated here -->
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Pagination -->
-                <div class="pagination" id="pagination">
-                    <!-- Pagination will be generated here -->
-                </div>
-            </div>
-        </main>
-
-        <!-- Footer -->
-        <footer class="footer">
-            <p>&copy; 2025 Proeduvate Pvt Ltd. All Rights Reserved.</p>
-        </footer>
-    </div>
-
-    <!-- View Modal -->
-    <div id="viewModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Progress Details</h2>
-                <button class="modal-close" id="closeModal">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body" id="modalBody">
-                <!-- Content will be populated here -->
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Authentication check
-        async function checkAuth() {
-            try {
-                const response = await fetch('/api/admin/auth-status', {
-                    credentials: 'include'
-                });
-                const data = await response.json();
-                
-                if (!data.authenticated) {
-                    window.location.href = '/admin-login';
-                    return;
-                }
-                
-                // Update user info in navbar
-                if (data.user) {
-                    const userNameElement = document.querySelector('.user-name');
-                    if (userNameElement) {
-                        userNameElement.textContent = data.user;
-                    }
-                }
-            } catch (error) {
-                console.error('Auth check failed:', error);
-                window.location.href = '/admin-login';
-            }
-        }
-
-        // Logout function
-        async function logout() {
-            try {
-                const response = await fetch('/api/admin/logout', {
-                    method: 'POST',
-                    credentials: 'include'
-                });
-                
-                if (response.ok) {
-                    window.location.href = '/admin-login';
-                } else {
-                    console.error('Logout failed');
-                }
-            } catch (error) {
-                console.error('Logout error:', error);
-                // Force redirect even if logout fails
-                window.location.href = '/admin-login';
-            }
-        }
-
-        // Add logout functionality to user dropdown
-        function setupLogout() {
-            const userDropdown = document.querySelector('.user-dropdown');
-            const userInfo = document.querySelector('.user-info');
-            
-            if (userDropdown && userInfo) {
-                userInfo.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    if (confirm('Are you sure you want to logout?')) {
-                        logout();
-                    }
-                });
-                
-                // Add cursor pointer to indicate it's clickable
-                userInfo.style.cursor = 'pointer';
-                userInfo.title = 'Click to logout';
-            }
-        }
-
-        // Initialize authentication check when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            checkAuth();
-            setupLogout();
-        });
-    </script>
-    <script src="admin.js"></script>
+  <script src="admin.js"></script>
 </body>
 </html>
