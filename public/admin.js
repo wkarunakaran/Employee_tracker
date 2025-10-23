@@ -2,9 +2,9 @@
 // ADMIN DASHBOARD SCRIPT
 // =========================
 
-// ✅ Set BASE_URL dynamically (works on both localhost and Render)
-let BASE_URL = window.location.origin + '/';
-console.log("Admin panel connected to API:", BASE_URL);
+// ✅ Use your Render backend URL directly
+const BASE_URL = "https://employee-tracker-vgqx.onrender.com";
+console.log("✅ Admin panel connected to API:", BASE_URL);
 
 // Pagination and filter setup
 let currentPage = 1;
@@ -29,11 +29,11 @@ async function fetchSubmissions() {
         const response = await fetch(`${BASE_URL}/api/employee-progress`);
         if (!response.ok) throw new Error('Failed to fetch submissions');
         allSubmissions = await response.json();
-        console.log('Fetched submissions:', allSubmissions);
+        console.log('✅ Fetched submissions:', allSubmissions);
 
         applyFilters();
     } catch (error) {
-        console.error('Error fetching submissions:', error);
+        console.error('❌ Error fetching submissions:', error);
         alert('Error loading data. Please try again later.');
     }
 }
@@ -87,6 +87,10 @@ function renderSubmissions() {
     const pageData = filteredSubmissions.slice(startIndex, startIndex + 10);
 
     pageData.forEach(sub => {
+        const fileLink = sub.filePath
+            ? `<a href="${BASE_URL}/${sub.filePath}" target="_blank">View File</a>`
+            : 'No File';
+
         const row = `
             <tr>
                 <td>${sub.name}</td>
@@ -95,9 +99,7 @@ function renderSubmissions() {
                 <td>${sub.techLead}</td>
                 <td>${sub.status}</td>
                 <td>${new Date(sub.createdAt).toLocaleDateString()}</td>
-                <td>
-                    <a href="${sub.filePath}" target="_blank">View File</a>
-                </td>
+                <td>${fileLink}</td>
                 <td>
                     <button onclick="deleteSubmission('${sub._id}')">🗑️ Delete</button>
                 </td>
@@ -142,10 +144,10 @@ async function deleteSubmission(id) {
 
         if (!response.ok) throw new Error('Failed to delete submission');
 
-        alert('Submission deleted successfully');
+        alert('✅ Submission deleted successfully');
         fetchSubmissions();
     } catch (error) {
-        console.error('Error deleting submission:', error);
+        console.error('❌ Error deleting submission:', error);
         alert('Error deleting submission');
     }
 }
