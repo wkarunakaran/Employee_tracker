@@ -1,203 +1,138 @@
-require('dotenv').config();
-const express = require('express');
-const mongoose = require('mongoose');
-const multer = require('multer');
-const path = require('path');
-const cors = require('cors');
-const fs = require('fs');
-const session = require('express-session');
-const MongoStore = require('connect-mongo'); // ✅ Persistent session storage
-const EmployeeProgress = require('./models/EmployeeProgress');
+// ================================
+// ProEduvate Employee Tracker Server
+// ================================
 
+import express from "express";
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import session from "express-session";
+import MongoStore from "connect-mongo";
+import path from "path";
+import multer from "multer";
+import cors from "cors";
+import { fileURLToPath } from "url";
+import EmployeeProgress from "./models/EmployeeProgress.js";
+
+// ----------------------------
+// 1️⃣ Setup & Config
+// ----------------------------
+dotenv.config();
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
-// =========================
-// ✅ MIDDLEWARE SETUP
-// =========================
-app.use(
-  cors({
-    origin: [
-      'http://localhost:3000',
-      'https://employee-tracker-vgqx.onrender.com', // ✅ your Render domain
-    ],
-    credentials: true,
-  })
-);
+// Required for ES module paths
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// ----------------------------
+// 2️⃣ Middleware
+// ----------------------------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cors());
 
-// ✅ Ensure uploads folder exists
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-
-// =========================
-// ✅ MongoDB Connection
-// =========================
-const mongoUri =
-  process.env.MONGODB_URI ||
-  `mongodb+srv://${process.env.USERNAME}:${encodeURIComponent(process.env.PASSWORD)}@${
-    process.env.CLUSTERNAME
-  }.${process.env.PROVIDER || 'mongodb.net'}/Proeduvate?retryWrites=true&w=majority`;
-
-mongoose
-  .connect(mongoUri)
-  .then(() => console.log('✅ Connected to MongoDB'))
-  .catch((err) => console.error('❌ MongoDB connection error:', err));
-
-// =========================
-// ✅ Session Configuration (persistent in MongoDB)
-// =========================
+// Session setup with connect-mongo (Render compatible)
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || 'proeduvate-secret-key-2024',
+    secret: process.env.SESSION_SECRET || "supersecretkey",
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
-      mongoUrl: mongoUri,
-      collectionName: 'sessions',
+      mongoUrl: process.env.MONGO_URI,
+      ttl: 14 * 24 * 60 * 60 // 14 days
     }),
     cookie: {
-      secure: false, // ⚠️ true only if using HTTPS + custom domain
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    },
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      httpOnly: true
+    }
   })
 );
 
-// =========================
-// ✅ Static Files
-// =========================
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// ----------------------------
+// 3️⃣ Database Connection
+// ----------------------------
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ MongoDB Connected Successfully"))
+  .catch((err) => console.error("❌ MongoDB Connection Failed:", err));
 
-// =========================
-// ✅ Multer File Upload Config
-// =========================
+// ----------------------------
+// 4️⃣ Multer Setup for File Uploads
+// ----------------------------
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads/'),
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, `${file.fieldname}-${uniqueSuffix}${path.extname(file.originalname)}`);
-  },
+  destination: (req, file, cb) => cb(null, "uploads/"),
+  filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname)
 });
-const upload = multer({
-  storage,
-  limits: {
-    fileSize: parseInt(process.env.MAX_FILE_SIZE) || 5 * 1024 * 1024,
-    files: parseInt(process.env.MAX_FILES) || 10,
-  },
-});
+const upload = multer({ storage });
 
-// =========================
-// ✅ Admin Credentials
-// =========================
-const ADMIN_USERNAME = process.env.LOGIN_USERNAME || 'Login@proEduvate';
-const ADMIN_PASSWORD = process.env.LOGIN_PASSWORD || 'Pass@proEduvate';
+// ----------------------------
+// 5️⃣ Routes
+// ----------------------------
 
-// =========================
-// ✅ ROUTES
-// =========================
-
-// 🔹 Home
-app.get('/', (req, res) =>
-  res.sendFile(path.join(__dirname, 'public', 'index.html'))
-);
-
-// 🔹 Admin Login Page
-app.get('/admin-login', (req, res) =>
-  res.sendFile(path.join(__dirname, 'public', 'admin-login.html'))
-);
-
-// 🔹 Admin Login API
-app.post('/api/admin/login', (req, res) => {
-  const { username, password } = req.body;
-  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-    req.session.isAuthenticated = true;
-    req.session.adminUser = username;
-    console.log(`✅ Admin logged in: ${username}`);
-    return res.json({ success: true });
-  }
-  return res.status(401).json({ success: false, message: 'Invalid credentials' });
+// Root (for testing)
+app.get("/", (req, res) => {
+  res.send("ProEduvate Employee Tracker API is Running ✅");
 });
 
-// 🔹 Admin Logout
-app.post('/api/admin/logout', (req, res) => {
-  req.session.destroy(() => res.json({ success: true }));
-});
-
-// 🔹 Admin Auth Check
-app.get('/api/admin/auth-status', (req, res) => {
-  if (req.session.isAuthenticated) {
-    return res.json({ authenticated: true });
-  }
-  res.json({ authenticated: false });
-});
-
-// 🔹 Admin Panel
-app.get('/admin', (req, res) => {
-  if (req.session.isAuthenticated)
-    return res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-  res.redirect('/admin-login');
-});
-
-// =========================
-// ✅ Employee Progress APIs
-// =========================
-app.post('/api/employee-progress', upload.array('fileAttachment', 10), async (req, res) => {
+// Employee Progress Submission
+app.post("/submit", upload.single("file"), async (req, res) => {
   try {
-    const entry = new EmployeeProgress({
-      ...req.body,
-      fileAttachments:
-        req.files?.map((f) => ({
-          originalName: f.originalname,
-          fileName: f.filename,
-          filePath: `/uploads/${f.filename}`,
-          fileSize: f.size,
-          mimeType: f.mimetype,
-        })) || [],
-      formSubmissionTime: new Date(),
+    const { name, email, task, date } = req.body;
+    const newProgress = new EmployeeProgress({
+      name,
+      email,
+      task,
+      date,
+      file: req.file ? req.file.filename : null
     });
-
-    await entry.save();
-    res.status(201).json({ success: true, message: 'Progress submitted successfully.' });
+    await newProgress.save();
+    res.status(201).json({ message: "✅ Submission Successful!" });
   } catch (error) {
-    console.error('❌ Error submitting progress:', error);
-    res.status(500).json({ success: false, message: 'Internal server error.' });
+    console.error("Submission Error:", error);
+    res.status(500).json({ message: "❌ Submission Failed" });
   }
 });
 
-app.get('/api/employee-progress', async (req, res) => {
+// Admin Login
+app.post("/admin/login", (req, res) => {
+  const { username, password } = req.body;
+  const ADMIN_USER = process.env.ADMIN_USER || "admin";
+  const ADMIN_PASS = process.env.ADMIN_PASS || "12345";
+
+  if (username === ADMIN_USER && password === ADMIN_PASS) {
+    req.session.isAdmin = true;
+    res.json({ success: true });
+  } else {
+    res.status(401).json({ success: false, message: "Invalid credentials" });
+  }
+});
+
+// Admin Fetch All Submissions
+app.get("/admin/data", async (req, res) => {
+  if (!req.session.isAdmin) {
+    return res.status(403).json({ message: "Unauthorized" });
+  }
   try {
-    const data = await EmployeeProgress.find().sort({ createdAt: -1 });
+    const data = await EmployeeProgress.find().sort({ date: -1 });
     res.json(data);
   } catch (error) {
-    console.error('❌ Fetch Error:', error);
-    res.status(500).json({ success: false });
+    res.status(500).json({ message: "Error fetching data" });
   }
 });
 
-app.delete('/api/employee-progress/:id', async (req, res) => {
-  try {
-    await EmployeeProgress.findByIdAndDelete(req.params.id);
-    res.json({ success: true });
-  } catch (error) {
-    console.error('❌ Delete Error:', error);
-    res.status(500).json({ success: false });
-  }
+// ----------------------------
+// 6️⃣ Serve Frontend (Render compatible)
+// ----------------------------
+app.use(express.static(path.join(__dirname, "public")));
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// =========================
-// ✅ Catch-All Fallback
-// =========================
-app.get('*', (req, res) =>
-  res.sendFile(path.join(__dirname, 'public', 'index.html'))
+// ----------------------------
+// 7️⃣ Start Server
+// ----------------------------
+app.listen(PORT, () =>
+  console.log(`🚀 Server running on port ${PORT} (Environment: ${process.env.NODE_ENV})`)
 );
-
-// =========================
-// ✅ Start Server
-// =========================
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
