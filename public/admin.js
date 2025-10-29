@@ -1,59 +1,41 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const loginForm = document.getElementById("adminLoginForm");
-  if (loginForm) {
-    // 🔹 Handle login form submission
-    loginForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
+// ================================
+// admin.js — ProEduvate Employee Tracker
+// Handles Admin Login & Redirection
+// ================================
 
-      const username = document.getElementById("username").value.trim();
-      const password = document.getElementById("password").value.trim();
+const form = document.getElementById("adminLoginForm");
 
-      if (!username || !password) {
-        alert("Please enter both username and password.");
-        return;
-      }
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
 
-      try {
-        const response = await fetch("/api/admin/login", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include", // ✅ Important for sessions
-          body: JSON.stringify({ username, password }),
-        });
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value.trim();
 
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-          alert("Login successful!");
-          window.location.href = "/admin"; // ✅ Redirect to dashboard
-        } else {
-          alert(data.message || "Invalid credentials. Please try again.");
-        }
-      } catch (error) {
-        console.error("Login error:", error);
-        alert("Server error. Please try again later.");
-      }
-    });
+  if (!username || !password) {
+    alert("⚠️ Please enter both username and password.");
+    return;
   }
 
-  // 🔹 Auto redirect to /admin if already authenticated
-  checkExistingSession();
-});
-
-// ✅ Check if admin is already logged in
-async function checkExistingSession() {
   try {
-    const response = await fetch("/api/admin/auth-status", {
-      credentials: "include",
+    const response = await fetch("/admin/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ username, password }),
+      credentials: "include"
     });
+
     const data = await response.json();
 
-    if (data.authenticated && window.location.pathname === "/admin-login") {
-      window.location.href = "/admin";
+    if (response.ok && data.success) {
+      alert("✅ Login successful!");
+      window.location.href = "/admin-dashboard.html";
+    } else {
+      alert("❌ Invalid credentials. Please try again.");
     }
   } catch (error) {
-    console.error("Session check failed:", error);
+    console.error("Login Error:", error);
+    alert("⚠️ Server error. Please try again later.");
   }
-}
+});
