@@ -17,11 +17,10 @@ form.addEventListener("submit", async (e) => {
   }
 
   try {
-    const response = await fetch("/admin/login", {
+    // ✅ Corrected endpoint
+    const response = await fetch("/api/admin/login", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
       credentials: "include"
     });
