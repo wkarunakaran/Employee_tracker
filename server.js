@@ -7,6 +7,7 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import multer from "multer";
 import session from "express-session";
+import MongoStore from "connect-mongo";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -15,7 +16,7 @@ import EmployeeProgress from "./models/EmployeeProgress.js";
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
 // ===============================
 // 📁 Path Configuration
@@ -30,20 +31,29 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(
   cors({
-    origin: true,
+    origin: process.env.ALLOWED_ORIGINS?.split(",") || "*",
     credentials: true,
   })
 );
 
 // ===============================
-// 🛡️ Session Middleware
+// 🛡️ Session Middleware (with MongoStore)
 // ===============================
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "proeduvate-secret-key-2024",
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false, httpOnly: true, maxAge: 24 * 60 * 60 * 1000 },
+    store: MongoStore.create({
+      mongoUrl: process.env.MONGODB_URI,
+      ttl: 14 * 24 * 60 * 60, // 14 days
+    }),
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 24 * 60 * 60 * 1000,
+    },
   })
 );
 
@@ -51,7 +61,7 @@ app.use(
 // ⚙️ MongoDB Connection
 // ===============================
 mongoose
-  .connect(process.env.MONGO_URI || "mongodb://localhost:27017/proeduvate_tracker", {
+  .connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
@@ -69,7 +79,6 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + "-" + file.originalname);
   },
 });
-
 const upload = multer({ storage });
 
 // ===============================
@@ -81,10 +90,9 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // ===============================
 // 👨‍💻 Admin Authentication Routes
 // ===============================
-
-// POST: Admin login
 app.post("/api/admin/login", (req, res) => {
   const { username, password } = req.body;
+
   if (
     username === process.env.LOGIN_USERNAME &&
     password === process.env.LOGIN_PASSWORD
@@ -92,22 +100,23 @@ app.post("/api/admin/login", (req, res) => {
     req.session.isAuthenticated = true;
     return res.json({ success: true });
   } else {
-    return res.status(401).json({ success: false, message: "Invalid credentials" });
+    return res
+      .status(401)
+      .json({ success: false, message: "Invalid credentials" });
   }
 });
 
-// POST: Admin logout
 app.post("/api/admin/logout", (req, res) => {
   req.session.destroy(() => {
     res.json({ success: true });
   });
 });
 
-// GET: Protected Admin Data
 app.get("/admin/data", async (req, res) => {
   if (!req.session.isAuthenticated) {
     return res.status(403).json({ error: "Unauthorized" });
   }
+
   try {
     const submissions = await EmployeeProgress.find().sort({ createdAt: -1 });
     res.json(submissions);
@@ -160,8 +169,6 @@ app.post("/api/submit-progress", upload.array("fileAttachments", 5), async (req,
 // ===============================
 // 🏠 Default Routes
 // ===============================
-
-// Serve main dashboard pages
 app.get("/admin", (req, res) => {
   if (!req.session.isAuthenticated) {
     return res.redirect("/admin-login.html");
@@ -173,14 +180,13 @@ app.get("/admin-login", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "admin-login.html"));
 });
 
-// Default route
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 // ===============================
-// 🚀 Start Server
+// 🚀 Start Server (Render fix → bind to 0.0.0.0)
 // ===============================
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
