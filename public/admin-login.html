@@ -1,303 +1,58 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proeduvate | Admin Login</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<script>
+    const loginForm = document.getElementById('loginForm');
+    const loginBtn = document.getElementById('loginBtn');
+    const loading = document.getElementById('loading');
+    const errorMessage = document.getElementById('errorMessage');
+    const errorText = document.getElementById('errorText');
 
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0056D2 0%, #1E293B 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
+    // 🟢 Update this to your actual backend URL on Render
+    const BACKEND_URL = "https://employee-tracker-vgqx.onrender.com";
 
-        .login-container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-            padding: 40px;
-            width: 100%;
-            max-width: 400px;
-            position: relative;
-            overflow: hidden;
-        }
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
 
-        .login-container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #0056D2, #1E293B);
-        }
+        loginBtn.disabled = true;
+        loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Authenticating...';
+        loading.style.display = 'block';
+        errorMessage.style.display = 'none';
 
-        .logo-section {
-            text-align: center;
-            margin-bottom: 30px;
-        }
+        try {
+            const response = await fetch(`${BACKEND_URL}/api/admin/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username, password }),
+                credentials: 'include'
+            });
 
-        .logo-section img {
-            width: 200px;
-            height: 60px;
-            margin-bottom: 15px;
-        }
+            const data = await response.json();
 
-        .logo-section h1 {
-            color: #1E293B;
-            font-size: 24px;
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-
-        .logo-section p {
-            color: #64748B;
-            font-size: 14px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            color: #1E293B;
-            font-weight: 500;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
-
-        .input-container {
-            position: relative;
-        }
-
-        .input-container i {
-            position: absolute;
-            left: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #64748B;
-            font-size: 16px;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 12px 15px 12px 45px;
-            border: 2px solid #E2E8F0;
-            border-radius: 10px;
-            font-size: 14px;
-            transition: all 0.3s ease;
-            background: #F8FAFC;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: #0056D2;
-            background: white;
-            box-shadow: 0 0 0 3px rgba(0, 86, 210, 0.1);
-        }
-
-        .login-btn {
-            width: 100%;
-            background: linear-gradient(135deg, #0056D2, #1E293B);
-            color: white;
-            border: none;
-            padding: 14px;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 10px;
-        }
-
-        .login-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(0, 86, 210, 0.3);
-        }
-
-        .login-btn:active {
-            transform: translateY(0);
-        }
-
-        .login-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .error-message {
-            background: #FEF2F2;
-            color: #DC2626;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            display: none;
-            border-left: 4px solid #DC2626;
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            margin-top: 20px;
-        }
-
-        .loading i {
-            color: #0056D2;
-            font-size: 20px;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
-        .back-link {
-            text-align: center;
-            margin-top: 20px;
-        }
-
-        .back-link a {
-            color: #64748B;
-            text-decoration: none;
-            font-size: 14px;
-            transition: color 0.3s ease;
-        }
-
-        .back-link a:hover {
-            color: #0056D2;
-        }
-
-        @media (max-width: 480px) {
-            .login-container {
-                padding: 30px 20px;
-                margin: 10px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="login-container">
-        <div class="logo-section">
-            <img src="assets/proeduvate_logo.png" alt="Proeduvate Logo">
-            <h1>Admin Login</h1>
-            <p>Enter your credentials to access the dashboard</p>
-        </div>
-
-        <div class="error-message" id="errorMessage">
-            <i class="fas fa-exclamation-triangle"></i>
-            <span id="errorText">Invalid credentials. Please try again.</span>
-        </div>
-
-        <form id="loginForm">
-            <div class="form-group">
-                <label for="username">Username</label>
-                <div class="input-container">
-                    <i class="fas fa-user"></i>
-                    <input type="text" id="username" name="username" required>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="password">Password</label>
-                <div class="input-container">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" id="password" name="password" required>
-                </div>
-            </div>
-
-            <button type="submit" class="login-btn" id="loginBtn">
-                <i class="fas fa-sign-in-alt"></i>
-                Login to Dashboard
-            </button>
-        </form>
-
-        <div class="loading" id="loading">
-            <i class="fas fa-spinner"></i>
-            <p>Authenticating...</p>
-        </div>
-
-        <div class="back-link">
-            <a href="/">
-                <i class="fas fa-arrow-left"></i>
-                Back to Employee Portal
-            </a>
-        </div>
-    </div>
-
-    <script>
-        const loginForm = document.getElementById('loginForm');
-        const loginBtn = document.getElementById('loginBtn');
-        const loading = document.getElementById('loading');
-        const errorMessage = document.getElementById('errorMessage');
-        const errorText = document.getElementById('errorText');
-
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-
-            // Show loading state
-            loginBtn.disabled = true;
-            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Authenticating...';
-            loading.style.display = 'block';
-            errorMessage.style.display = 'none';
-
-            try {
-                const response = await fetch('/api/admin/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ username, password }),
-                    credentials: 'include'
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    // Redirect to admin dashboard
-                    window.location.href = '/admin';
-                } else {
-                    // Show error message
-                    errorText.textContent = data.message || 'Invalid credentials. Please try again.';
-                    errorMessage.style.display = 'block';
-                }
-            } catch (error) {
-                console.error('Login error:', error);
-                errorText.textContent = 'Connection error. Please try again.';
+            if (response.ok) {
+                window.location.href = `${BACKEND_URL}/admin`;
+            } else {
+                errorText.textContent = data.message || 'Invalid credentials. Please try again.';
                 errorMessage.style.display = 'block';
-            } finally {
-                // Reset button state
-                loginBtn.disabled = false;
-                loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login to Dashboard';
-                loading.style.display = 'none';
             }
-        });
+        } catch (error) {
+            console.error('Login error:', error);
+            errorText.textContent = 'Connection error. Please try again.';
+            errorMessage.style.display = 'block';
+        } finally {
+            loginBtn.disabled = false;
+            loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login to Dashboard';
+            loading.style.display = 'none';
+        }
+    });
 
-        // Clear error message when user starts typing
-        document.getElementById('username').addEventListener('input', () => {
-            errorMessage.style.display = 'none';
-        });
+    document.getElementById('username').addEventListener('input', () => {
+        errorMessage.style.display = 'none';
+    });
 
-        document.getElementById('password').addEventListener('input', () => {
-            errorMessage.style.display = 'none';
-        });
-    </script>
-</body>
-</html>
+    document.getElementById('password').addEventListener('input', () => {
+        errorMessage.style.display = 'none';
+    });
+</script>
