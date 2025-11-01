@@ -1,66 +1,219 @@
-// ================================
-// admin.js — ProEduvate Employee Tracker
-// Handles Admin Login & Secure Redirection
-// ================================
-
-document.addEventListener("DOMContentLoaded", () => {
-  const form = document.getElementById("adminLoginForm");
-  if (!form) return;
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const username = document.getElementById("username").value.trim();
-    const password = document.getElementById("password").value.trim();
-
-    if (!username || !password) {
-      alert("⚠️ Please enter both username and password.");
-      return;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard | ProEduvate Employee Tracker</title>
+  <link rel="stylesheet" href="admin.css" />
+  <style>
+    body {
+      font-family: "Poppins", sans-serif;
+      background: #f4f7fb;
+      margin: 0;
+      padding: 0;
     }
 
-    try {
-      // ✅ POST to backend admin login route
-      const response = await fetch("/api/admin/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // allows session cookie
-        body: JSON.stringify({ username, password }),
-      });
+    header {
+      background: #004aad;
+      color: #fff;
+      padding: 20px;
+      text-align: center;
+      font-size: 22px;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
 
-      const data = await response.json();
+    header button {
+      background: #ff4757;
+      border: none;
+      padding: 10px 20px;
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: 0.3s ease;
+    }
 
-      if (response.ok && data.success) {
-        alert("✅ Login successful!");
-        // Small delay for smooth UX
-        setTimeout(() => {
-          window.location.href = "/admin-dashboard.html";
-        }, 500);
-      } else {
-        alert("❌ Invalid credentials. Please try again.");
+    header button:hover {
+      background: #e84118;
+    }
+
+    .container {
+      margin: 30px auto;
+      width: 95%;
+      max-width: 1200px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+      padding: 20px;
+    }
+
+    h2 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: center;
+    }
+
+    th {
+      background: #004aad;
+      color: #fff;
+    }
+
+    tr:nth-child(even) {
+      background: #f9f9f9;
+    }
+
+    tr:hover {
+      background: #f1f7ff;
+    }
+
+    a {
+      color: #007bff;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .no-data {
+      text-align: center;
+      color: #666;
+      padding: 30px 0;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span>👨‍💼 ProEduvate Admin Dashboard</span>
+    <button onclick="logout()">Logout</button>
+  </header>
+
+  <div class="container">
+    <h2>Employee Progress Submissions</h2>
+
+    <table id="dataTable">
+      <thead>
+        <tr>
+          <th>Intern Name</th>
+          <th>Email</th>
+          <th>Intern ID</th>
+          <th>Domain</th>
+          <th>Tech Lead</th>
+          <th>Assigned Task</th>
+          <th>Status</th>
+          <th>Submitted On</th>
+          <th>Files</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td colspan="9" class="no-data">Loading data...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    // =========================
+    // ✅ Fetch and Display Data
+    // =========================
+    async function fetchData() {
+      try {
+        const res = await fetch("/api/admin/data", { credentials: "include" });
+        if (!res.ok) throw new Error("Unauthorized or server error");
+
+        const data = await res.json();
+        const tbody = document.querySelector("#dataTable tbody");
+        tbody.innerHTML = "";
+
+        if (!data || data.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="9" class="no-data">No records found.</td></tr>`;
+          return;
+        }
+
+        data.forEach((item) => {
+          const row = `
+            <tr>
+              <td>${item.internName || "—"}</td>
+              <td>${item.internEmail || "—"}</td>
+              <td>${item.internId || "—"}</td>
+              <td>${item.internDomain || "—"}</td>
+              <td>${item.techLeadName || "—"}</td>
+              <td>${item.assignedTask || "—"}</td>
+              <td>${item.workStatus || "—"}</td>
+              <td>${item.submissionTimestamp ? new Date(item.submissionTimestamp).toLocaleString() : "—"}</td>
+              <td>${
+                item.fileAttachments?.length
+                  ? item.fileAttachments.map(f => `<a href="${f.filePath}" target="_blank">${f.originalName}</a>`).join("<br>")
+                  : "—"
+              }</td>
+            </tr>`;
+          tbody.innerHTML += row;
+        });
+      } catch (error) {
+        console.error("⚠️ Fetch Error:", error);
+        alert("Session expired or unauthorized. Please log in again.");
+        window.location.href = "/admin-login.html";
       }
-    } catch (error) {
-      console.error("Login Error:", error);
-      alert("⚠️ Unable to connect to the server. Try again later.");
     }
-  });
-});
 
-// ================================
-// Optional: Auto-redirect if already logged in
-// ================================
-(async function checkAdminSession() {
-  try {
-    const res = await fetch("/api/admin/check-session", {
-      method: "GET",
-      credentials: "include",
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.loggedIn) {
-        window.location.href = "/admin-dashboard.html";
+    // =========================
+    // ✅ Logout Functionality
+    // =========================
+    async function logout() {
+      try {
+        await fetch("/api/admin/logout", {
+          method: "POST",
+          credentials: "include"
+        });
+      } catch (err) {
+        console.warn("Logout error:", err);
+      }
+      window.location.href = "/admin-login.html";
+    }
+
+    // =========================
+    // ✅ Session Check on Load
+    // =========================
+    async function checkSession() {
+      try {
+        const res = await fetch("/api/admin/check-session", {
+          method: "GET",
+          credentials: "include"
+        });
+        if (!res.ok) {
+          window.location.href = "/admin-login.html";
+          return;
+        }
+        const data = await res.json();
+        if (!data.loggedIn) {
+          window.location.href = "/admin-login.html";
+        } else {
+          fetchData();
+        }
+      } catch (err) {
+        console.error("Session check failed:", err);
+        window.location.href = "/admin-login.html";
       }
     }
-  } catch (err) {
-    console.warn("Session check skipped:", err);
-  }
-})();
+
+    // Run session check first
+    checkSession();
+  </script>
+</body>
+</html>
