@@ -1,58 +1,103 @@
-<script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ProEduvate Admin Login</title>
+  <link rel="stylesheet" href="admin.css" />
+  <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+  <div class="login-container">
+    <div class="login-box">
+      <img src="assets/proeduvate_logo.png" alt="ProEduvate Logo" class="logo" />
+      <h2>Admin Login</h2>
+
+      <form id="loginForm">
+        <div class="input-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" placeholder="Enter username" required />
+        </div>
+
+        <div class="input-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" placeholder="Enter password" required />
+        </div>
+
+        <div id="loading" style="display:none; text-align:center;">
+          <i class="fas fa-spinner fa-spin"></i> Authenticating...
+        </div>
+
+        <div id="errorMessage" class="error-message" style="display:none;">
+          <i class="fas fa-exclamation-circle"></i>
+          <span id="errorText"></span>
+        </div>
+
+        <button type="submit" id="loginBtn" class="login-btn">
+          <i class="fas fa-sign-in-alt"></i> Login to Dashboard
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
     const loginForm = document.getElementById('loginForm');
     const loginBtn = document.getElementById('loginBtn');
     const loading = document.getElementById('loading');
     const errorMessage = document.getElementById('errorMessage');
     const errorText = document.getElementById('errorText');
 
-    // 🟢 Update this to your actual backend URL on Render
+    // 🌐 Your Render backend URL
     const BACKEND_URL = "https://employee-tracker-vgqx.onrender.com";
 
     loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
+      e.preventDefault();
 
-        loginBtn.disabled = true;
-        loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Authenticating...';
-        loading.style.display = 'block';
-        errorMessage.style.display = 'none';
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value.trim();
 
-        try {
-            const response = await fetch(`${BACKEND_URL}/api/admin/login`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ username, password }),
-                credentials: 'include'
-            });
+      loginBtn.disabled = true;
+      loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Authenticating...';
+      loading.style.display = 'block';
+      errorMessage.style.display = 'none';
 
-            const data = await response.json();
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/admin/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+          credentials: 'include' // ✅ keeps your login session active
+        });
 
-            if (response.ok) {
-                window.location.href = `${BACKEND_URL}/admin`;
-            } else {
-                errorText.textContent = data.message || 'Invalid credentials. Please try again.';
-                errorMessage.style.display = 'block';
-            }
-        } catch (error) {
-            console.error('Login error:', error);
-            errorText.textContent = 'Connection error. Please try again.';
-            errorMessage.style.display = 'block';
-        } finally {
-            loginBtn.disabled = false;
-            loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login to Dashboard';
-            loading.style.display = 'none';
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          // ✅ Redirect to dashboard page
+          window.location.href = `${BACKEND_URL}/admin-dashboard.html`;
+        } else {
+          errorText.textContent = data.message || 'Invalid credentials. Please try again.';
+          errorMessage.style.display = 'block';
         }
+      } catch (error) {
+        console.error('Login error:', error);
+        errorText.textContent = 'Server connection failed. Please try again.';
+        errorMessage.style.display = 'block';
+      } finally {
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login to Dashboard';
+        loading.style.display = 'none';
+      }
     });
 
+    // Hide error message on new input
     document.getElementById('username').addEventListener('input', () => {
-        errorMessage.style.display = 'none';
+      errorMessage.style.display = 'none';
     });
-
     document.getElementById('password').addEventListener('input', () => {
-        errorMessage.style.display = 'none';
+      errorMessage.style.display = 'none';
     });
-</script>
+  </script>
+
+</body>
+</html>
