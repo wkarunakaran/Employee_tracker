@@ -1,66 +1,39 @@
-// ================================
-// admin.js — ProEduvate Employee Tracker
-// Handles Admin Login & Secure Redirection
-// ================================
+// 🌐 Update backend URL
+const BACKEND_URL = "https://employee-tracker-vgqx.onrender.com";
 
-document.addEventListener("DOMContentLoaded", () => {
-  const form = document.getElementById("adminLoginForm");
-  if (!form) return;
+loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value.trim();
 
-    const username = document.getElementById("username").value.trim();
-    const password = document.getElementById("password").value.trim();
+  loginBtn.disabled = true;
+  loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Authenticating...';
+  loading.style.display = "block";
+  errorMessage.style.display = "none";
 
-    if (!username || !password) {
-      alert("⚠️ Please enter both username and password.");
-      return;
-    }
-
-    try {
-      // ✅ POST to backend admin login route
-      const response = await fetch("/api/admin/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // allows session cookie
-        body: JSON.stringify({ username, password }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        alert("✅ Login successful!");
-        // Small delay for smooth UX
-        setTimeout(() => {
-          window.location.href = "/admin-dashboard.html";
-        }, 500);
-      } else {
-        alert("❌ Invalid credentials. Please try again.");
-      }
-    } catch (error) {
-      console.error("Login Error:", error);
-      alert("⚠️ Unable to connect to the server. Try again later.");
-    }
-  });
-});
-
-// ================================
-// Optional: Auto-redirect if already logged in
-// ================================
-(async function checkAdminSession() {
   try {
-    const res = await fetch("/api/admin/check-session", {
-      method: "GET",
-      credentials: "include",
+    const response = await fetch(`${BACKEND_URL}/api/admin/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+      credentials: "include"   // 👈 very important for session
     });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.loggedIn) {
-        window.location.href = "/admin-dashboard.html";
-      }
+
+    const result = await response.json();
+
+    if (result.success) {
+      window.location.href = `${BACKEND_URL}/admin-dashboard.html`;
+    } else {
+      throw new Error(result.message || "Invalid credentials");
     }
+
   } catch (err) {
-    console.warn("Session check skipped:", err);
+    errorText.innerText = err.message;
+    errorMessage.style.display = "block";
+  } finally {
+    loginBtn.disabled = false;
+    loginBtn.innerHTML = "Login";
+    loading.style.display = "none";
   }
-})();
+});
