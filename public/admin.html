@@ -1,345 +1,803 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proeduvate | Admin Dashboard</title>
-    <link rel="stylesheet" href="admin.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-</head>
-<body>
-    <div class="container">
-        <!-- Header -->
-        <header class="header">
-            <div class="navbar">
-                <!-- Left Section - Branding -->
-                <div class="navbar-brand">
-                    <img src="assets/proeduvate_logo.png" alt="Proeduvate Logo" class="navbar-logo">
-                </div>
-                
-                <!-- Center Section - Navigation -->
-                <nav class="navbar-nav">
-                    <a href="#" class="nav-link active">Dashboard</a>
-                </nav>
-                
-                <!-- Right Section - User Profile -->
-                <div class="navbar-user">
-                    <div class="user-avatar">
-                        <span>A</span>
-                    </div>
-                    <div class="user-info">
-                        <span class="user-name">Admin User</span>
-                        <i class="fas fa-chevron-down user-dropdown"></i>
-                    </div>
-                </div>
-                
-                <!-- Mobile Menu Button -->
-                <button class="mobile-menu-btn">
-                    <i class="fas fa-bars"></i>
+// Global variables
+let BASE_URL = '';
+let currentPage = 1;
+let currentFilters = {
+    search: '',
+    domain: 'all',
+    techLead: 'all',
+    status: 'all',
+    dateRange: 'all',
+    dateFrom: '',
+    dateTo: ''
+};
+let allSubmissions = [];
+let filteredSubmissions = [];
+
+// DOM Elements
+const searchInput = document.getElementById('searchInput');
+const filterToggleBtn = document.getElementById('filterToggleBtn');
+const filterChevron = document.getElementById('filterChevron');
+const filtersSection = document.getElementById('filtersSection');
+const closeFiltersBtn = document.getElementById('closeFiltersBtn');
+const domainFilter = document.getElementById('domainFilter');
+const techLeadFilter = document.getElementById('techLeadFilter');
+const statusFilter = document.getElementById('statusFilter');
+const dateRangeFilter = document.getElementById('dateRangeFilter');
+const dateFromFilter = document.getElementById('dateFromFilter');
+const dateToFilter = document.getElementById('dateToFilter');
+const customDateGroup = document.getElementById('customDateGroup');
+const customDateGroup2 = document.getElementById('customDateGroup2');
+const clearFiltersBtn = document.getElementById('clearFilters');
+const applyFiltersBtn = document.getElementById('applyFilters');
+const refreshBtn = document.getElementById('refreshBtn');
+const loadingSpinner = document.getElementById('loadingSpinner');
+const errorMessage = document.getElementById('errorMessage');
+const errorText = document.getElementById('errorText');
+const tableBody = document.getElementById('tableBody');
+const pagination = document.getElementById('pagination');
+const paginationInfo = document.getElementById('paginationInfo');
+const viewModal = document.getElementById('viewModal');
+const closeModal = document.getElementById('closeModal');
+const modalBody = document.getElementById('modalBody');
+
+// Stats elements
+const totalSubmissionsEl = document.getElementById('totalSubmissions');
+const completedTasksEl = document.getElementById('completedTasks');
+const inProgressTasksEl = document.getElementById('inProgressTasks');
+const pendingTasksEl = document.getElementById('pendingTasks');
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', async function() {
+    // Fetch BASE_URL from server
+    try {
+        const response = await fetch('/api/config');
+        const config = await response.json();
+        BASE_URL = config.BASE_URL;
+    } catch (error) {
+        console.error('Failed to fetch BASE_URL, using default:', error);
+        BASE_URL = window.location.origin + '/';
+    }
+    
+    // Debug: Check if elements exist
+    console.log('Custom date groups found:', {
+        customDateGroup: !!customDateGroup,
+        customDateGroup2: !!customDateGroup2,
+        dateRangeFilter: !!dateRangeFilter
+    });
+    
+    loadSubmissions();
+    setupEventListeners();
+});
+
+// Setup event listeners
+function setupEventListeners() {
+    // Search input
+    searchInput.addEventListener('input', debounce(handleSearch, 300));
+    
+    // Filter toggle
+    filterToggleBtn.addEventListener('click', toggleFilters);
+    closeFiltersBtn.addEventListener('click', hideFilters);
+    
+    // Filter dropdowns
+    domainFilter.addEventListener('change', handleFilterChange);
+    techLeadFilter.addEventListener('change', handleFilterChange);
+    statusFilter.addEventListener('change', handleFilterChange);
+    
+    // Date range filter
+    if (dateRangeFilter) {
+        dateRangeFilter.addEventListener('change', handleDateRangeChange);
+        console.log('Date range filter event listener added');
+    } else {
+        console.error('Date range filter element not found!');
+    }
+    
+    if (dateFromFilter) {
+        dateFromFilter.addEventListener('change', handleFilterChange);
+    }
+    if (dateToFilter) {
+        dateToFilter.addEventListener('change', handleFilterChange);
+    }
+    
+    // Filter actions
+    clearFiltersBtn.addEventListener('click', clearAllFilters);
+    applyFiltersBtn.addEventListener('click', applyFiltersAndHide);
+    
+    // Refresh button
+    refreshBtn.addEventListener('click', loadSubmissions);
+    
+    // Modal close
+    closeModal.addEventListener('click', closeViewModal);
+    viewModal.addEventListener('click', function(e) {
+        if (e.target === viewModal) {
+            closeViewModal();
+        }
+    });
+    
+    // Escape key to close modal
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && viewModal.style.display === 'block') {
+            closeViewModal();
+        }
+    });
+}
+
+// Debounce function for search
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Toggle filters panel
+function toggleFilters() {
+    if (filtersSection.classList.contains('show')) {
+        hideFilters();
+    } else {
+        showFilters();
+    }
+}
+
+// Show filters panel
+function showFilters() {
+    filtersSection.classList.add('show');
+    filterToggleBtn.classList.add('active');
+    filterChevron.style.transform = 'rotate(180deg)';
+}
+
+// Hide filters panel
+function hideFilters() {
+    filtersSection.classList.remove('show');
+    filterToggleBtn.classList.remove('active');
+    filterChevron.style.transform = 'rotate(0deg)';
+}
+
+// Apply filters and hide panel
+function applyFiltersAndHide() {
+    applyFilters();
+    hideFilters();
+}
+
+// Load submissions from API
+async function loadSubmissions() {
+    try {
+        showLoading(true);
+        hideError();
+        
+        const response = await fetch(`${BASE_URL}api/employee-progress`, {
+            credentials: 'include'
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            allSubmissions = result.data;
+            updateStats();
+            applyFilters();
+        } else {
+            showError(result.message || 'Failed to load submissions');
+        }
+    } catch (error) {
+        console.error('Error loading submissions:', error);
+        showError('Network error. Please check your connection and try again.');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Handle search input
+function handleSearch(e) {
+    currentFilters.search = e.target.value.toLowerCase();
+    currentPage = 1;
+    applyFilters();
+}
+
+// Handle filter changes
+function handleFilterChange(e) {
+    const filterType = e.target.id.replace('Filter', '');
+    currentFilters[filterType] = e.target.value;
+    currentPage = 1;
+    applyFilters();
+}
+
+// Handle date range changes
+function handleDateRangeChange(e) {
+    const dateRange = e.target.value;
+    currentFilters.dateRange = dateRange;
+    
+    console.log('Date range changed to:', dateRange); // Debug log
+    
+    // Show/hide custom date inputs
+    if (dateRange === 'custom') {
+        console.log('Showing custom date inputs'); // Debug log
+        customDateGroup.classList.add('show');
+        customDateGroup2.classList.add('show');
+        // Fallback using inline styles
+        customDateGroup.style.display = 'flex';
+        customDateGroup2.style.display = 'flex';
+    } else {
+        console.log('Hiding custom date inputs'); // Debug log
+        customDateGroup.classList.remove('show');
+        customDateGroup2.classList.remove('show');
+        // Fallback using inline styles
+        customDateGroup.style.display = 'none';
+        customDateGroup2.style.display = 'none';
+        
+        // Set date range based on selection
+        const today = new Date();
+        let fromDate = '';
+        let toDate = '';
+        
+        switch (dateRange) {
+            case 'today':
+                fromDate = toDate = formatDateForInput(today);
+                break;
+            case 'yesterday':
+                const yesterday = new Date(today);
+                yesterday.setDate(yesterday.getDate() - 1);
+                fromDate = toDate = formatDateForInput(yesterday);
+                break;
+            case 'thisWeek':
+                const startOfWeek = new Date(today);
+                startOfWeek.setDate(today.getDate() - today.getDay());
+                fromDate = formatDateForInput(startOfWeek);
+                toDate = formatDateForInput(today);
+                break;
+            case 'lastWeek':
+                const lastWeekStart = new Date(today);
+                lastWeekStart.setDate(today.getDate() - today.getDay() - 7);
+                const lastWeekEnd = new Date(today);
+                lastWeekEnd.setDate(today.getDate() - today.getDay() - 1);
+                fromDate = formatDateForInput(lastWeekStart);
+                toDate = formatDateForInput(lastWeekEnd);
+                break;
+            case 'thisMonth':
+                const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                fromDate = formatDateForInput(startOfMonth);
+                toDate = formatDateForInput(today);
+                break;
+            case 'lastMonth':
+                const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+                fromDate = formatDateForInput(lastMonthStart);
+                toDate = formatDateForInput(lastMonthEnd);
+                break;
+            case 'all':
+            default:
+                fromDate = '';
+                toDate = '';
+                break;
+        }
+        
+        currentFilters.dateFrom = fromDate;
+        currentFilters.dateTo = toDate;
+        dateFromFilter.value = fromDate;
+        dateToFilter.value = toDate;
+    }
+    
+    currentPage = 1;
+    applyFilters();
+}
+
+// Helper function to format date for input
+function formatDateForInput(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+// Apply filters and update display
+function applyFilters() {
+    filteredSubmissions = allSubmissions.filter(submission => {
+        const matchesSearch = !currentFilters.search || 
+            submission.internName.toLowerCase().includes(currentFilters.search) ||
+            submission.internEmail.toLowerCase().includes(currentFilters.search) ||
+            submission.internId.toLowerCase().includes(currentFilters.search);
+        
+        const matchesDomain = currentFilters.domain === 'all' || 
+            submission.internDomain === currentFilters.domain;
+        
+        const matchesTechLead = currentFilters.techLead === 'all' || 
+            submission.techLeadName === currentFilters.techLead;
+        
+        const matchesStatus = currentFilters.status === 'all' || 
+            submission.workStatus === currentFilters.status;
+        
+        // Date filtering
+        const submissionDate = new Date(submission.date);
+        const fromDate = currentFilters.dateFrom ? new Date(currentFilters.dateFrom) : null;
+        const toDate = currentFilters.dateTo ? new Date(currentFilters.dateTo) : null;
+        
+        let matchesDate = true;
+        if (fromDate) {
+            matchesDate = matchesDate && submissionDate >= fromDate;
+        }
+        if (toDate) {
+            // Add one day to include the entire "to date"
+            const toDatePlusOne = new Date(toDate);
+            toDatePlusOne.setDate(toDatePlusOne.getDate() + 1);
+            matchesDate = matchesDate && submissionDate < toDatePlusOne;
+        }
+        
+        return matchesSearch && matchesDomain && matchesTechLead && matchesStatus && matchesDate;
+    });
+    
+    updateStats();
+    renderTable();
+    renderPagination();
+}
+
+// Clear all filters
+function clearAllFilters() {
+    searchInput.value = '';
+    domainFilter.value = 'all';
+    techLeadFilter.value = 'all';
+    statusFilter.value = 'all';
+    dateRangeFilter.value = 'all';
+    dateFromFilter.value = '';
+    dateToFilter.value = '';
+    customDateGroup.classList.remove('show');
+    customDateGroup2.classList.remove('show');
+    // Fallback using inline styles
+    customDateGroup.style.display = 'none';
+    customDateGroup2.style.display = 'none';
+    
+    currentFilters = {
+        search: '',
+        domain: 'all',
+        techLead: 'all',
+        status: 'all',
+        dateRange: 'all',
+        dateFrom: '',
+        dateTo: ''
+    };
+    
+    currentPage = 1;
+    applyFilters();
+    hideFilters();
+}
+
+// Update statistics
+function updateStats() {
+    const total = filteredSubmissions.length;
+    const completed = filteredSubmissions.filter(s => s.workStatus === 'Completed').length;
+    const inProgress = filteredSubmissions.filter(s => s.workStatus === 'In Progress').length;
+    const pending = filteredSubmissions.filter(s => s.workStatus === 'Pending').length;
+    
+    totalSubmissionsEl.textContent = total;
+    completedTasksEl.textContent = completed;
+    inProgressTasksEl.textContent = inProgress;
+    pendingTasksEl.textContent = pending;
+}
+
+// Render table
+function renderTable() {
+    const itemsPerPage = 10;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const pageSubmissions = filteredSubmissions.slice(startIndex, endIndex);
+    
+    tableBody.innerHTML = '';
+    
+    if (pageSubmissions.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="10" style="text-align: center; padding: 40px; color: #64748B;">
+                    <i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+                    No submissions found
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    pageSubmissions.forEach(submission => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${submission.internName}</td>
+            <td>${submission.internEmail}</td>
+            <td>${submission.internId}</td>
+            <td>${submission.internDomain}</td>
+            <td>${formatDate(submission.date)}</td>
+            <td>${formatDateTime(submission.formSubmissionTime || submission.submissionTimestamp)}</td>
+            <td>${submission.techLeadName}</td>
+            <td>${truncateText(submission.assignedTask, 30)}</td>
+            <td><span class="status-badge status-${submission.workStatus.toLowerCase().replace(' ', '-')}">${submission.workStatus}</span></td>
+            <td>
+                <button class="btn-view" onclick="viewSubmission('${submission._id}')">
+                    <i class="fas fa-eye"></i>
+                    View
                 </button>
-            </div>
-        </header>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+    
+    // Update pagination info
+    const totalPages = Math.ceil(filteredSubmissions.length / itemsPerPage);
+    const startEntry = startIndex + 1;
+    const endEntry = Math.min(endIndex, filteredSubmissions.length);
+    
+    let dateInfo = '';
+    if (currentFilters.dateFrom || currentFilters.dateTo) {
+        const fromDate = currentFilters.dateFrom ? new Date(currentFilters.dateFrom).toLocaleDateString() : 'Start';
+        const toDate = currentFilters.dateTo ? new Date(currentFilters.dateTo).toLocaleDateString() : 'End';
+        dateInfo = ` (${fromDate} - ${toDate})`;
+    }
+    
+    paginationInfo.textContent = `Showing ${startEntry}-${endEntry} of ${filteredSubmissions.length} entries${dateInfo}`;
+}
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Search and Filter Bar -->
-            <div class="search-filter-bar">
-                <div class="search-container">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="searchInput" placeholder="Search by name, email, or ID...">
-                </div>
-                <button id="filterToggleBtn" class="btn-filter">
-                    <i class="fas fa-filter"></i>
-                    Filters
-                    <i class="fas fa-chevron-up" id="filterChevron"></i>
-                </button>
-            </div>
+// Render pagination
+function renderPagination() {
+    const itemsPerPage = 10;
+    const totalPages = Math.ceil(filteredSubmissions.length / itemsPerPage);
+    
+    if (totalPages <= 1) {
+        pagination.innerHTML = '';
+        return;
+    }
+    
+    let paginationHTML = '';
+    
+    // Previous button
+    paginationHTML += `
+        <button ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+    `;
+    
+    // Page numbers
+    const startPage = Math.max(1, currentPage - 2);
+    const endPage = Math.min(totalPages, currentPage + 2);
+    
+    if (startPage > 1) {
+        paginationHTML += `<button onclick="changePage(1)">1</button>`;
+        if (startPage > 2) {
+            paginationHTML += `<span>...</span>`;
+        }
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+        paginationHTML += `
+            <button class="${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">
+                ${i}
+            </button>
+        `;
+    }
+    
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            paginationHTML += `<span>...</span>`;
+        }
+        paginationHTML += `<button onclick="changePage(${totalPages})">${totalPages}</button>`;
+    }
+    
+    // Next button
+    paginationHTML += `
+        <button ${currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${currentPage + 1})">
+            <i class="fas fa-chevron-right"></i>
+        </button>
+    `;
+    
+    pagination.innerHTML = paginationHTML;
+}
 
-            <!-- Filters Section -->
-            <div class="filters-section" id="filtersSection">
-                <div class="filters-header">
-                    <h3>Filter Options</h3>
-                    <button id="closeFiltersBtn" class="btn-close-filters">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                
-                <div class="filters">
-                    <div class="filter-group">
-                        <label for="domainFilter">Domain</label>
-                        <select id="domainFilter">
-                            <option value="all">All Domains</option>
-                            <option value="Full Stack">Full Stack</option>
-                            <option value="Frontend">Frontend</option>
-                            <option value="Backend">Backend</option>
-                            <option value="AIML">AIML</option>
-                            <option value="Database Management">Database Management</option>
-                            <option value="Cloud Technologies">Cloud Technologies</option>
-                            <option value="Cyber Security">Cyber Security</option>
-                            <option value="Data Engineering">Data Engineering</option>
-                            <option value="Data Visualization">Data Visualization</option>
-                            <option value="Testing">Testing</option>
-                            <option value="Others">Others</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label for="techLeadFilter">Tech Lead</label>
-                        <select id="techLeadFilter">
-                            <option value="all">All Tech Leads</option>
-                            <option value="Balamanikandan">Balamanikandan</option>
-                            <option value="Karunamoorthy S">Karunamoorthy S</option>
-                            <option value="Dharshini">Dharshini</option>
-                            <option value="Dhanush Chakravarthy">Dhanush Chakravarthy</option>
-                            <option value="Gowtham">Gowtham</option>
-                            <option value="Dowlath Nisha">Dowlath Nisha</option>
-                            <option value="KarunaKaran">KarunaKaran</option>
-                            <option value="Sachin">Sachin</option>
-                            <option value="Martin">Martin</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label for="statusFilter">Status</label>
-                        <select id="statusFilter">
-                            <option value="all">All Status</option>
-                            <option value="Completed">Completed</option>
-                            <option value="In Progress">In Progress</option>
-                            <option value="Pending">Pending</option>
-                            <option value="Blocked">Blocked</option>
-                            <option value="On Hold">On Hold</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label for="dateRangeFilter">Quick Date Range</label>
-                        <select id="dateRangeFilter">
-                            <option value="all">All Time</option>
-                            <option value="today">Today</option>
-                            <option value="yesterday">Yesterday</option>
-                            <option value="thisWeek">This Week</option>
-                            <option value="lastWeek">Last Week</option>
-                            <option value="thisMonth">This Month</option>
-                            <option value="lastMonth">Last Month</option>
-                            <option value="custom">Custom Range</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group" id="customDateGroup" style="display: none;">
-                        <label for="dateFromFilter">From Date</label>
-                        <input type="date" id="dateFromFilter" placeholder="Select start date">
-                    </div>
-                    
-                    <div class="filter-group" id="customDateGroup2" style="display: none;">
-                        <label for="dateToFilter">To Date</label>
-                        <input type="date" id="dateToFilter" placeholder="Select end date">
-                    </div>
-                    
-                    <div class="filters-actions">
-                        <button id="clearFilters" class="btn-clear">
-                            Clear All
-                        </button>
-                        <button id="applyFilters" class="btn-apply">
-                            Apply Filters
-                        </button>
-                    </div>
-                </div>
-            </div>
+// Change page
+function changePage(page) {
+    const totalPages = Math.ceil(filteredSubmissions.length / 10);
+    if (page >= 1 && page <= totalPages) {
+        currentPage = page;
+        renderTable();
+        renderPagination();
+    }
+}
 
-            <!-- Stats Cards -->
-            <div class="stats-section">
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-users"></i>
-                    </div>
-                    <div class="stat-content">
-                        <h3 id="totalSubmissions">0</h3>
-                        <p>Total Submissions</p>
-                    </div>
-                </div>
-                
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
-                    <div class="stat-content">
-                        <h3 id="completedTasks">0</h3>
-                        <p>Completed Tasks</p>
-                    </div>
-                </div>
-                
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-clock"></i>
-                    </div>
-                    <div class="stat-content">
-                        <h3 id="inProgressTasks">0</h3>
-                        <p>In Progress</p>
-                    </div>
-                </div>
-                
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-exclamation-triangle"></i>
-                    </div>
-                    <div class="stat-content">
-                        <h3 id="pendingTasks">0</h3>
-                        <p>Pending Tasks</p>
-                    </div>
+// View submission details
+async function viewSubmission(id) {
+    try {
+        const response = await fetch(`${BASE_URL}api/employee-progress/${id}`, {
+            credentials: 'include'
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            displaySubmissionModal(result.data);
+        } else {
+            showError(result.message || 'Failed to load submission details');
+        }
+    } catch (error) {
+        console.error('Error loading submission details:', error);
+        showError('Network error. Please try again.');
+    }
+}
+
+// Display submission in modal
+function displaySubmissionModal(submission) {
+    const fileAttachments = submission.fileAttachments || [];
+    let fileHTML = '';
+    
+    if (fileAttachments.length > 0) {
+        fileHTML = `
+            <div class="file-attachment">
+                <div class="file-preview">
+                    ${fileAttachments.map(file => getFilePreview(file, submission._id)).join('')}
                 </div>
             </div>
-
-            <!-- Table Section -->
-            <div class="table-section">
-                <div class="table-header">
-                    <h2>Employee Progress Submissions</h2>
-                    <div class="table-actions">
-                        <button id="refreshBtn" class="btn-refresh">
-                            <i class="fas fa-sync-alt"></i>
-                            Refresh
-                        </button>
-                        <div class="pagination-info">
-                            <span id="paginationInfo">Showing 0 of 0 entries</span>
-                        </div>
-                    </div>
+        `;
+    } else {
+        fileHTML = '<p style="color: #64748B; font-style: italic;">No files attached</p>';
+    }
+    
+    modalBody.innerHTML = `
+        <div class="detail-section">
+            <h3><i class="fas fa-user"></i> Personal Information</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <label>Intern Name</label>
+                    <span>${submission.internName}</span>
                 </div>
-
-                <!-- Loading Spinner -->
-                <div id="loadingSpinner" class="loading-container">
-                    <div class="loading-spinner"></div>
-                    <p>Loading submissions...</p>
+                <div class="detail-item">
+                    <label>Email</label>
+                    <span>${submission.internEmail}</span>
                 </div>
-
-                <!-- Error Message -->
-                <div id="errorMessage" class="error-message" style="display: none;">
-                    <i class="fas fa-exclamation-circle"></i>
-                    <span id="errorText">Failed to load submissions. Please try again.</span>
+                <div class="detail-item">
+                    <label>Intern ID</label>
+                    <span>${submission.internId}</span>
                 </div>
-
-                <!-- Table -->
-                <div class="table-container">
-                    <table id="submissionsTable">
-                        <thead>
-                            <tr>
-                                <th>Intern Name</th>
-                                <th>Email</th>
-                                <th>ID</th>
-                                <th>Domain</th>
-                                <th>Date</th>
-                                <th>Form Sub. Time</th>
-                                <th>Tech Lead</th>
-                                <th>Task</th>
-                                <th>Status</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tableBody">
-                            <!-- Data will be populated here -->
-                        </tbody>
-                    </table>
+                <div class="detail-item">
+                    <label>Domain</label>
+                    <span>${submission.internDomain}</span>
                 </div>
-
-                <!-- Pagination -->
-                <div class="pagination" id="pagination">
-                    <!-- Pagination will be generated here -->
-                </div>
-            </div>
-        </main>
-
-        <!-- Footer -->
-        <footer class="footer">
-            <p>&copy; 2025 Proeduvate Pvt Ltd. All Rights Reserved.</p>
-        </footer>
-    </div>
-
-    <!-- View Modal -->
-    <div id="viewModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Progress Details</h2>
-                <button class="modal-close" id="closeModal">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body" id="modalBody">
-                <!-- Content will be populated here -->
             </div>
         </div>
-    </div>
+        
+        <div class="detail-section">
+            <h3><i class="fas fa-briefcase"></i> Work Information</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <label>Date</label>
+                    <span>${formatDate(submission.date)}</span>
+                </div>
+                <div class="detail-item">
+                    <label>Form Submission Time</label>
+                    <span>${formatDateTime(submission.formSubmissionTime || submission.submissionTimestamp)}</span>
+                </div>
+                <div class="detail-item">
+                    <label>Tech Lead</label>
+                    <span>${submission.techLeadName}</span>
+                </div>
+                <div class="detail-item">
+                    <label>Work Status</label>
+                    <span class="status-badge status-${submission.workStatus.toLowerCase().replace(' ', '-')}">${submission.workStatus}</span>
+                </div>
+            </div>
+            <div class="detail-item" style="margin-top: 15px;">
+                <label>Assigned Task / Work / Learning Module</label>
+                <span>${submission.assignedTask}</span>
+            </div>
+        </div>
+        
+        <div class="detail-section">
+            <h3><i class="fas fa-clipboard-list"></i> Progress Details</h3>
+            <div class="detail-item">
+                <label>What you learned today</label>
+                <textarea readonly>${submission.learnedToday || 'Not provided'}</textarea>
+            </div>
+            <div class="detail-item">
+                <label>Work description</label>
+                <textarea readonly>${submission.workDescription || 'Not provided'}</textarea>
+            </div>
+            <div class="detail-item">
+                <label>Challenges faced</label>
+                <textarea readonly>${submission.challengesFaced || 'Not provided'}</textarea>
+            </div>
+            <div class="detail-item">
+                <label>Support or resources required</label>
+                <textarea readonly>${submission.supportRequired || 'Not provided'}</textarea>
+            </div>
+        </div>
+        
+        <div class="detail-section">
+            <h3><i class="fas fa-paperclip"></i> File Attachment</h3>
+            ${fileHTML}
+        </div>
+    `;
+    
+    viewModal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+}
 
-    <script>
-        // Authentication check
-        async function checkAuth() {
-            try {
-                const response = await fetch('/api/admin/auth-status', {
-                    credentials: 'include'
-                });
-                const data = await response.json();
-                
-                if (!data.authenticated) {
-                    window.location.href = '/admin-login';
-                    return;
-                }
-                
-                // Update user info in navbar
-                if (data.user) {
-                    const userNameElement = document.querySelector('.user-name');
-                    if (userNameElement) {
-                        userNameElement.textContent = data.user;
-                    }
-                }
-            } catch (error) {
-                console.error('Auth check failed:', error);
-                window.location.href = '/admin-login';
-            }
-        }
+// Close view modal
+function closeViewModal() {
+    viewModal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+}
 
-        // Logout function
-        async function logout() {
-            try {
-                const response = await fetch('/api/admin/logout', {
-                    method: 'POST',
-                    credentials: 'include'
-                });
-                
-                if (response.ok) {
-                    window.location.href = '/admin-login';
-                } else {
-                    console.error('Logout failed');
-                }
-            } catch (error) {
-                console.error('Logout error:', error);
-                // Force redirect even if logout fails
-                window.location.href = '/admin-login';
-            }
-        }
+// Utility functions
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+}
 
-        // Add logout functionality to user dropdown
-        function setupLogout() {
-            const userDropdown = document.querySelector('.user-dropdown');
-            const userInfo = document.querySelector('.user-info');
-            
-            if (userDropdown && userInfo) {
-                userInfo.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    if (confirm('Are you sure you want to logout?')) {
-                        logout();
-                    }
-                });
-                
-                // Add cursor pointer to indicate it's clickable
-                userInfo.style.cursor = 'pointer';
-                userInfo.title = 'Click to logout';
-            }
-        }
+function formatDateTime(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+    });
+}
 
-        // Initialize authentication check when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            checkAuth();
-            setupLogout();
+function formatTime12Hour(timeString) {
+    if (!timeString) return '';
+    
+    // If it's already in 12-hour format, return as is
+    if (timeString.includes('AM') || timeString.includes('PM')) {
+        return timeString;
+    }
+    
+    // Convert 24-hour format to 12-hour format
+    const [hours, minutes] = timeString.split(':');
+    const hour24 = parseInt(hours);
+    
+    let hour12 = hour24;
+    let period = 'AM';
+    
+    if (hour24 === 0) {
+        hour12 = 12;
+    } else if (hour24 === 12) {
+        period = 'PM';
+    } else if (hour24 > 12) {
+        hour12 = hour24 - 12;
+        period = 'PM';
+    }
+    
+    return `${hour12}:${minutes} ${period}`;
+}
+
+function truncateText(text, maxLength) {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+}
+
+function getFileIcon(mimeType) {
+    if (mimeType.startsWith('image/')) {
+        return 'fas fa-image';
+    } else if (mimeType === 'application/pdf') {
+        return 'fas fa-file-pdf';
+    } else if (mimeType.includes('word') || mimeType.includes('document')) {
+        return 'fas fa-file-word';
+    } else if (mimeType.includes('zip') || mimeType.includes('rar')) {
+        return 'fas fa-file-archive';
+    } else if (mimeType.includes('text')) {
+        return 'fas fa-file-alt';
+    } else {
+        return 'fas fa-file';
+    }
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function getFilePreview(fileAttachment, submissionId) {
+    const mimeType = fileAttachment.mimeType;
+    const filePath = `/uploads/${fileAttachment.fileName}`;
+    const fileIcon = getFileIcon(mimeType);
+    const fileSize = formatFileSize(fileAttachment.fileSize);
+    
+    return `
+        <div class="file-list-item">
+            <div class="file-info">
+                <div class="file-icon">
+                    <i class="${fileIcon}"></i>
+                </div>
+                <div class="file-details">
+                    <div class="file-name">${fileAttachment.originalName}</div>
+                    <div class="file-meta">${fileSize} • ${mimeType}</div>
+                </div>
+            </div>
+            <div class="file-actions">
+                <a href="${filePath}" target="_blank" class="btn-open-new-tab">
+                    <i class="fas fa-external-link-alt"></i>
+                    Open
+                </a>
+                <a href="${filePath}" download="${fileAttachment.originalName}" class="btn-download">
+                    <i class="fas fa-download"></i>
+                    Download
+                </a>
+                <button onclick="deleteFile('${submissionId}', '${fileAttachment.fileName}')" class="btn-delete">
+                    <i class="fas fa-trash"></i>
+                    Delete
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function showLoading(show) {
+    loadingSpinner.style.display = show ? 'block' : 'none';
+    refreshBtn.disabled = show;
+}
+
+function showError(message) {
+    errorText.textContent = message;
+    errorMessage.style.display = 'flex';
+}
+
+function hideError() {
+    errorMessage.style.display = 'none';
+}
+
+// Delete file function
+async function deleteFile(submissionId, fileName) {
+    if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${BASE_URL}api/employee-progress/${submissionId}/files/${fileName}`, {
+            credentials: 'include',
+            method: 'DELETE'
         });
-    </script>
-    <script src="admin.js"></script>
-</body>
-</html>
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Refresh the modal to show updated file list
+            await viewSubmission(submissionId);
+            showSuccess('File deleted successfully');
+        } else {
+            showError(result.message || 'Failed to delete file');
+        }
+    } catch (error) {
+        console.error('Error deleting file:', error);
+        showError('Network error. Please try again.');
+    }
+}
+
+// Show success message
+function showSuccess(message) {
+    // Create a temporary success message
+    const successDiv = document.createElement('div');
+    successDiv.className = 'success-message';
+    successDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #10B981;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        z-index: 10000;
+        font-weight: 500;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    `;
+    successDiv.innerHTML = `<i class="fas fa-check-circle" style="margin-right: 8px;"></i>${message}`;
+    
+    document.body.appendChild(successDiv);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        if (successDiv.parentNode) {
+            successDiv.parentNode.removeChild(successDiv);
+        }
+    }, 3000);
+}
