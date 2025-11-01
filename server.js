@@ -1,6 +1,6 @@
-// ===============================
-// 🌐 ProEduvate Employee Tracker (Fixed Version)
-// ===============================
+// ==============================================
+// 🌐 ProEduvate Employee Tracker - Render Version
+// ==============================================
 
 import express from "express";
 import mongoose from "mongoose";
@@ -18,75 +18,77 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ===============================
-// 📁 Path Config
-// ===============================
+// ==============================================
+// 📁 Path Configuration
+// ==============================================
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ===============================
-// 🧠 Middleware
-// ===============================
+// ==============================================
+// 🧠 Middleware Setup
+// ==============================================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(
   cors({
-    origin: process.env.ALLOWED_ORIGINS?.split(",") || "*",
+    origin: process.env.ALLOWED_ORIGINS?.split(",") || ["http://localhost:3000"],
     credentials: true,
   })
 );
 
-// ===============================
-// 🛡️ Session (Cross-Origin Safe)
-// ===============================
+// ==============================================
+// 🛡️ Session Configuration (MongoStore)
+// ==============================================
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "proeduvate-secret-key-2024",
+    secret: process.env.SESSION_SECRET || "proeduvate-secret-key-2025",
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
       mongoUrl: process.env.MONGODB_URI,
-      ttl: 14 * 24 * 60 * 60,
+      ttl: 14 * 24 * 60 * 60, // 14 days
     }),
     cookie: {
-      secure: true,           // ✅ needed for Render/Vercel
+      secure: false, // 🔧 Keep false for Render HTTP proxy (true only if HTTPS verified)
       httpOnly: true,
-      sameSite: "none",       // ✅ cross-site cookie fix
+      sameSite: "lax",
       maxAge: 24 * 60 * 60 * 1000,
     },
   })
 );
 
-// ===============================
-// ⚙️ MongoDB
-// ===============================
+// ==============================================
+// ⚙️ MongoDB Connection
+// ==============================================
 mongoose
   .connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
-  .then(() => console.log("✅ MongoDB connected"))
-  .catch((err) => console.error("❌ MongoDB error:", err));
+  .then(() => console.log("✅ MongoDB connected successfully"))
+  .catch((err) => console.error("❌ MongoDB connection error:", err));
 
-// ===============================
-// 📦 Multer
-// ===============================
+// ==============================================
+// 📦 File Upload Configuration
+// ==============================================
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, "uploads/"),
   filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname),
 });
 const upload = multer({ storage });
 
-// ===============================
-// 📄 Static
-// ===============================
+// ==============================================
+// 📄 Static File Serving
+// ==============================================
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// ===============================
-// 👨‍💻 Admin Auth
-// ===============================
+// ==============================================
+// 👩‍💻 Admin Authentication Routes
+// ==============================================
+
+// 🔑 Admin Login
 app.post("/api/admin/login", (req, res) => {
   const { username, password } = req.body;
 
@@ -95,28 +97,31 @@ app.post("/api/admin/login", (req, res) => {
     password === process.env.LOGIN_PASSWORD
   ) {
     req.session.isAuthenticated = true;
+    console.log("✅ Admin logged in successfully");
     return res.json({ success: true });
   } else {
-    return res
-      .status(401)
-      .json({ success: false, message: "Invalid credentials" });
+    console.warn("❌ Invalid admin credentials attempt");
+    return res.status(401).json({ success: false, message: "Invalid credentials" });
   }
 });
 
+// 🚪 Logout
 app.post("/api/admin/logout", (req, res) => {
-  req.session.destroy(() => res.json({ success: true }));
+  req.session.destroy(() => {
+    res.json({ success: true });
+  });
 });
 
-// ✅ NEW: Check if admin session is valid
+// 🔎 Session Check
 app.get("/api/admin/check-session", (req, res) => {
   if (req.session.isAuthenticated) {
     return res.json({ loggedIn: true });
   } else {
-    return res.status(401).json({ loggedIn: false });
+    return res.json({ loggedIn: false });
   }
 });
 
-// ✅ FIXED: Changed endpoint to match frontend
+// 📊 Admin Dashboard Data
 app.get("/api/admin/data", async (req, res) => {
   if (!req.session.isAuthenticated) {
     return res.status(403).json({ error: "Unauthorized" });
@@ -126,58 +131,59 @@ app.get("/api/admin/data", async (req, res) => {
     const submissions = await EmployeeProgress.find().sort({ createdAt: -1 });
     res.json(submissions);
   } catch (err) {
-    console.error("⚠️ Error fetching data:", err);
+    console.error("⚠️ Error fetching admin data:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// ===============================
-// 🧾 Intern Submission
-// ===============================
-app.post("/api/submit-progress", upload.array("fileAttachments", 5), async (req, res) => {
-  try {
-    const {
-      internName,
-      internEmail,
-      internId,
-      internDomain,
-      techLeadName,
-      assignedTask,
-      workStatus,
-    } = req.body;
+// ==============================================
+// 🧾 Intern Submission Route
+// ==============================================
+app.post(
+  "/api/submit-progress",
+  upload.array("fileAttachments", 5),
+  async (req, res) => {
+    try {
+      const {
+        internName,
+        internEmail,
+        internId,
+        internDomain,
+        techLeadName,
+        assignedTask,
+        workStatus,
+      } = req.body;
 
-    const fileData = req.files.map((file) => ({
-      originalName: file.originalname,
-      filePath: `/uploads/${file.filename}`,
-    }));
+      const fileData = req.files.map((file) => ({
+        originalName: file.originalname,
+        filePath: `/uploads/${file.filename}`,
+      }));
 
-    const newProgress = new EmployeeProgress({
-      internName,
-      internEmail,
-      internId,
-      internDomain,
-      techLeadName,
-      assignedTask,
-      workStatus,
-      fileAttachments: fileData,
-      submissionTimestamp: new Date(),
-    });
+      const newProgress = new EmployeeProgress({
+        internName,
+        internEmail,
+        internId,
+        internDomain,
+        techLeadName,
+        assignedTask,
+        workStatus,
+        fileAttachments: fileData,
+        submissionTimestamp: new Date(),
+      });
 
-    await newProgress.save();
-    res.status(200).json({ success: true, message: "Submission successful!" });
-  } catch (error) {
-    console.error("❌ Error saving submission:", error);
-    res.status(500).json({ success: false, message: "Server Error" });
+      await newProgress.save();
+      console.log("✅ Progress submitted successfully");
+      res.status(200).json({ success: true, message: "Submission successful!" });
+    } catch (error) {
+      console.error("❌ Error saving submission:", error);
+      res.status(500).json({ success: false, message: "Server Error" });
+    }
   }
-});
-
-// ===============================
-// 🏠 Routes
-// ===============================
-app.get("/", (req, res) =>
-  res.sendFile(path.join(__dirname, "public", "index.html"))
 );
 
+// ==============================================
+// 🏠 Default Routes
+// ==============================================
 app.get("/admin", (req, res) => {
   if (!req.session.isAuthenticated) {
     return res.redirect("/admin-login.html");
@@ -185,13 +191,18 @@ app.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "admin-dashboard.html"));
 });
 
-app.get("/admin-login", (req, res) =>
-  res.sendFile(path.join(__dirname, "public", "admin-login.html"))
-);
+app.get("/admin-login", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "admin-login.html"));
+});
 
-// ===============================
-// 🚀 Start
-// ===============================
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// ==============================================
+// 🚀 Start Server (Render Fix → bind 0.0.0.0)
+// ==============================================
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
+
