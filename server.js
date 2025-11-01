@@ -1,5 +1,5 @@
 // ===============================
-// 🌐 ProEduvate Employee Tracker
+// 🌐 ProEduvate Employee Tracker (Fixed Version)
 // ===============================
 
 import express from "express";
@@ -19,16 +19,17 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ===============================
-// 📁 Path Configuration
+// 📁 Path Config
 // ===============================
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // ===============================
-// 🧠 Middleware Setup
+// 🧠 Middleware
 // ===============================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
 app.use(
   cors({
     origin: process.env.ALLOWED_ORIGINS?.split(",") || "*",
@@ -37,7 +38,7 @@ app.use(
 );
 
 // ===============================
-// 🛡️ Session Middleware (with MongoStore)
+// 🛡️ Session (Cross-Origin Safe)
 // ===============================
 app.use(
   session({
@@ -46,49 +47,45 @@ app.use(
     saveUninitialized: false,
     store: MongoStore.create({
       mongoUrl: process.env.MONGODB_URI,
-      ttl: 14 * 24 * 60 * 60, // 14 days
+      ttl: 14 * 24 * 60 * 60,
     }),
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: true,           // ✅ needed for Render/Vercel
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: "none",       // ✅ cross-site cookie fix
       maxAge: 24 * 60 * 60 * 1000,
     },
   })
 );
 
 // ===============================
-// ⚙️ MongoDB Connection
+// ⚙️ MongoDB
 // ===============================
 mongoose
   .connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
-  .then(() => console.log("✅ MongoDB connected successfully"))
-  .catch((err) => console.error("❌ MongoDB connection error:", err));
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((err) => console.error("❌ MongoDB error:", err));
 
 // ===============================
-// 📦 File Upload Configuration
+// 📦 Multer
 // ===============================
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/");
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + "-" + file.originalname);
-  },
+  destination: (req, file, cb) => cb(null, "uploads/"),
+  filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname),
 });
 const upload = multer({ storage });
 
 // ===============================
-// 📄 Static File Serving
+// 📄 Static
 // ===============================
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ===============================
-// 👨‍💻 Admin Authentication Routes
+// 👨‍💻 Admin Auth
 // ===============================
 app.post("/api/admin/login", (req, res) => {
   const { username, password } = req.body;
@@ -107,12 +104,20 @@ app.post("/api/admin/login", (req, res) => {
 });
 
 app.post("/api/admin/logout", (req, res) => {
-  req.session.destroy(() => {
-    res.json({ success: true });
-  });
+  req.session.destroy(() => res.json({ success: true }));
 });
 
-app.get("/admin/data", async (req, res) => {
+// ✅ NEW: Check if admin session is valid
+app.get("/api/admin/check-session", (req, res) => {
+  if (req.session.isAuthenticated) {
+    return res.json({ loggedIn: true });
+  } else {
+    return res.status(401).json({ loggedIn: false });
+  }
+});
+
+// ✅ FIXED: Changed endpoint to match frontend
+app.get("/api/admin/data", async (req, res) => {
   if (!req.session.isAuthenticated) {
     return res.status(403).json({ error: "Unauthorized" });
   }
@@ -127,7 +132,7 @@ app.get("/admin/data", async (req, res) => {
 });
 
 // ===============================
-// 🧾 Intern Submission Route
+// 🧾 Intern Submission
 // ===============================
 app.post("/api/submit-progress", upload.array("fileAttachments", 5), async (req, res) => {
   try {
@@ -167,25 +172,25 @@ app.post("/api/submit-progress", upload.array("fileAttachments", 5), async (req,
 });
 
 // ===============================
-// 🏠 Default Routes
+// 🏠 Routes
 // ===============================
+app.get("/", (req, res) =>
+  res.sendFile(path.join(__dirname, "public", "index.html"))
+);
+
 app.get("/admin", (req, res) => {
   if (!req.session.isAuthenticated) {
     return res.redirect("/admin-login.html");
   }
-  res.sendFile(path.join(__dirname, "public", "admin.html"));
+  res.sendFile(path.join(__dirname, "public", "admin-dashboard.html"));
 });
 
-app.get("/admin-login", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "admin-login.html"));
-});
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
+app.get("/admin-login", (req, res) =>
+  res.sendFile(path.join(__dirname, "public", "admin-login.html"))
+);
 
 // ===============================
-// 🚀 Start Server (Render fix → bind to 0.0.0.0)
+// 🚀 Start
 // ===============================
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Server running on port ${PORT}`);
